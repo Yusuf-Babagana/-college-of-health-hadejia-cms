@@ -1,0 +1,51 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Class List · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'results:lecturer_offerings' %}">My Courses</a></li>
+  <li class="breadcrumb-item active">Class List</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-1">
+  <h4 class="mb-0">{{ offering.course.code }} - {{ offering.course.title }}</h4>
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge badge-teal">{{ registrations|length }} Student{{ registrations|length|pluralize }}</span>
+    <a href="{% url 'results:class_list_export' offering.pk %}" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-download me-1"></i> Export CSV
+    </a>
+  </div>
+</div>
+<p class="text-muted small mb-4">{{ offering.semester }}</p>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Matric Number</th>
+          <th>Name</th>
+          <th>Level</th>
+          <th>Email</th>
+          <th>Phone</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for reg in registrations %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td><span class="badge badge-teal">{{ reg.student.matric_number }}</span></td>
+          <td>{{ reg.student.user.get_full_name }}</td>
+          <td>{{ reg.student.get_level_display }}</td>
+          <td>{{ reg.student.user.email }}</td>
+          <td>{{ reg.student.user.phone_number|default:'—' }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No students are registered for this course yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Enter Grades · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'results:lecturer_offerings' %}">My Courses</a></li>
+  <li class="breadcrumb-item active">Enter Grades</li>
+{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">{{ offering.course.code }} - {{ offering.course.title }}</h4>
+<p class="text-muted small mb-4">{{ offering.semester }}</p>
+
+{% if formset.forms %}
+<form method="post">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  <div class="card shadow-sm mb-3">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Matric Number</th>
+            <th>Name</th>
+            <th style="width:130px;">CA (/30)</th>
+            <th style="width:130px;">Exam (/70)</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for form in formset %}
+          <tr x-data="{ ca: {{ form.instance.ca_score|default:0 }}, exam: {{ form.instance.exam_score|default:0 }} }">
+            {{ form.id }}
+            <td>
+              <span class="badge badge-teal">{{ form.instance.student.matric_number }}</span>
+              {% if form.instance.review_comment %}
+                <div class="text-danger small mt-1">
+                  <i class="bi bi-x-circle"></i> {{ form.instance.review_comment }}
+                </div>
+              {% endif %}
+            </td>
+            <td>{{ form.instance.student.user.get_full_name }}</td>
+            <td>
+              {{ form.ca_score }}
+              {% for error in form.ca_score.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </td>
+            <td>
+              {{ form.exam_score }}
+              {% for error in form.exam_score.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </td>
+            <td class="fw-semibold" x-text="(ca + exam).toFixed(2)"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary">
+    <i class="bi bi-save me-1"></i> Save Grades
+  </button>
+</form>
+
+<form method="post" action="{% url 'results:submit_grades' offering.pk %}" class="d-inline mt-2"
+      onsubmit="return confirm('Submit all grades for HOD review? You will not be able to edit them until reviewed.');">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-outline-success mt-2">
+    <i class="bi bi-send-check me-1"></i> Submit for Review
+  </button>
+</form>
+{% else %}
+  <div class="alert alert-info">
+    No editable grades right now - either no students are registered for this course, or every grade has
+    already been submitted for review.
+  </div>
+{% endif %}
+
+{% if locked_grades %}
+<h5 class="mt-4 mb-3">Submitted / Reviewed Grades</h5>
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Matric Number</th>
+          <th>Name</th>
+          <th>CA</th>
+          <th>Exam</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th>HOD Comment</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for grade in locked_grades %}
+        <tr>
+          <td>{{ grade.student.matric_number }}</td>
+          <td>{{ grade.student.user.get_full_name }}</td>
+          <td>{{ grade.ca_score }}</td>
+          <td>{{ grade.exam_score }}</td>
+          <td>{{ grade.total_score }}</td>
+          <td>
+            {% if grade.status == 'submitted' %}<span class="badge bg-secondary">Submitted</span>
+            {% elif grade.status == 'approved' %}<span class="badge bg-success">Approved</span>
+            {% elif grade.status == 'rejected' %}<span class="badge bg-danger">Rejected</span>
+            {% elif grade.status == 'published' %}<span class="badge bg-primary">Published</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted">{{ grade.review_comment|default:'—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

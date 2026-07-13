@@ -1,0 +1,119 @@
+{% extends 'dashboard_base.html' %}
+{% load crispy_forms_tags format_tags %}
+
+{% block title %}Pay Invoice · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'finance:my_invoices' %}">My Invoices</a></li>
+  <li class="breadcrumb-item active">Pay</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-4">
+        <h5 class="card-title mb-1">{{ invoice.fee_structure.fee_type.name }}</h5>
+        <p class="text-muted small mb-3">
+          {{ invoice.fee_structure.department.code }} · {{ invoice.fee_structure.get_level_display }} ·
+          {{ invoice.fee_structure.session.name }}
+        </p>
+        <div class="row g-3 text-center">
+          <div class="col-4">
+            <div class="text-muted small">Amount Due</div>
+            <div class="fw-semibold">{{ invoice.amount_due|naira }}</div>
+          </div>
+          <div class="col-4">
+            <div class="text-muted small">Already Paid</div>
+            <div class="fw-semibold text-success">{{ invoice.amount_paid|naira }}</div>
+          </div>
+          <div class="col-4">
+            <div class="text-muted small">Outstanding Balance</div>
+            <div class="fw-bold text-danger">{{ invoice.balance|naira }}</div>
+          </div>
+        </div>
+        {% if invoice.due_date %}
+          <p class="text-muted small mt-3 mb-0">
+            Due {{ invoice.due_date }}
+            {% if invoice.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
+          </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-4">
+        <h6 class="card-title mb-1">Make a Payment</h6>
+        <p class="text-muted small mb-4">
+          Pay off this invoice in full, or make a part payment now and clear the rest later.
+          Your balance updates automatically after every successful payment.
+        </p>
+        {% crispy form %}
+      </div>
+    </div>
+
+    {% with payments=invoice.payments.all %}
+    {% if payments %}
+    <div class="card shadow-sm">
+      <div class="card-header bg-transparent">Payment History</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Reference</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in payments %}
+            <tr>
+              <td class="small">{{ payment.paid_at|default:payment.created_at }}</td>
+              <td>{{ payment.amount|naira }}</td>
+              <td>{{ payment.get_method_display }}</td>
+              <td class="small text-muted">{{ payment.reference }}</td>
+              <td>
+                {% if payment.status == 'successful' %}
+                  <span class="badge bg-success">Successful</span>
+                {% elif payment.status == 'pending' %}
+                  <span class="badge bg-secondary">Pending</span>
+                {% else %}
+                  <span class="badge bg-danger">Failed</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var radios = document.querySelectorAll('input[name="payment_type"]');
+  var amountField = document.getElementById('id_amount');
+  var amountGroup = amountField ? amountField.closest('.mb-3, .form-group') : null;
+
+  function syncAmountField() {
+    var partialSelected = document.querySelector('input[name="payment_type"]:checked')?.value === 'partial';
+    if (!amountField) return;
+    amountField.disabled = !partialSelected;
+    amountField.required = partialSelected;
+    if (amountGroup) amountGroup.style.opacity = partialSelected ? '1' : '0.5';
+    if (!partialSelected) amountField.value = '';
+  }
+
+  radios.forEach(function (radio) {
+    radio.addEventListener('change', syncAmountField);
+  });
+  syncAmountField();
+});
+</script>
+{% endblock %}

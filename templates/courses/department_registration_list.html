@@ -1,0 +1,110 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Course Registrations · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Course Registrations</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Course Registrations</h4>
+{% if department %}
+  <p class="text-muted small mb-4">{{ department.name }} ({{ department.code }})</p>
+{% elif is_overseer %}
+  <p class="text-muted small mb-4">All departments</p>
+{% endif %}
+
+{% if not department and not is_overseer %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Your account has no linked department. Contact the ICT Administrator.
+  </div>
+{% else %}
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      {% if is_overseer %}
+      <div class="col-md-3">
+        <select name="department" class="form-select">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="{% if is_overseer %}col-md-3{% else %}col-md-4{% endif %}">
+        <select name="semester" class="form-select">
+          <option value="">All Semesters</option>
+          {% for sem in semesters %}
+            <option value="{{ sem.pk }}" {% if sem.pk|stringformat:'s' == current_semester %}selected{% endif %}>
+              {{ sem }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="{% if is_overseer %}col-md-3{% else %}col-md-4{% endif %}">
+        <select name="status" class="form-select">
+          <option value="">All Statuses</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if value == current_status %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search me-1"></i> Filter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Matric Number</th>
+          <th>Student</th>
+          <th>Course</th>
+          {% if is_overseer %}<th>Department</th>{% endif %}
+          <th>Semester</th>
+          <th>Status</th>
+          <th>Registered On</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for reg in registrations %}
+        <tr>
+          <td><span class="badge badge-teal">{{ reg.student.matric_number }}</span></td>
+          <td>{{ reg.student.user.get_full_name }}</td>
+          <td>{{ reg.course_offering.course.code }}</td>
+          {% if is_overseer %}<td>{{ reg.course_offering.course.department.code }}</td>{% endif %}
+          <td>{{ reg.course_offering.semester }}</td>
+          <td>
+            {% if reg.status == 'registered' %}
+              <span class="badge bg-success">Registered</span>
+            {% else %}
+              <span class="badge bg-secondary">Dropped</span>
+            {% endif %}
+          </td>
+          <td>{{ reg.created_at|date:'M d, Y' }}</td>
+          <td class="text-end">
+            {% if reg.status == 'registered' %}
+            <form method="post" action="{% url 'courses:cancel_registration' reg.pk %}" class="d-inline"
+                  onsubmit="return confirm('Cancel {{ reg.student.matric_number }}\'s registration for {{ reg.course_offering.course.code }}?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle"></i> Cancel</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if is_overseer %}8{% else %}7{% endif %}" class="text-center text-muted py-4">No registrations found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endif %}
+{% endblock %}

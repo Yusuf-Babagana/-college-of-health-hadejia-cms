@@ -1,0 +1,108 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Semesters · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Semesters</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Semesters</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'academics:level_states' %}" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-layers me-1"></i> Level Semesters
+    </a>
+    <a href="{% url 'academics:semester_create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle me-1"></i> Add Semester
+    </a>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-8">
+        <select name="session" class="form-select">
+          <option value="">All Sessions</option>
+          {% for session in sessions %}
+            <option value="{{ session.pk }}" {% if session.pk|stringformat:'s' == current_session %}selected{% endif %}>{{ session.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search me-1"></i> Filter</button>
+      </div>
+      <div class="col-md-2 d-grid">
+        {% if show_archived %}
+          <a href="?" class="btn btn-outline-secondary">Show Active</a>
+        {% else %}
+          <a href="?archived=1" class="btn btn-outline-secondary">Show Archived</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Semester</th>
+          <th>Session</th>
+          <th>Registration Window</th>
+          <th>Running Levels</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for semester in semesters %}
+        <tr>
+          <td>{{ semester.get_name_display }}</td>
+          <td><span class="badge badge-teal">{{ semester.session.name }}</span></td>
+          <td class="small">
+            {% if semester.registration_start %}
+              {{ semester.registration_start|date:'M d, Y H:i' }} &rarr; {{ semester.registration_end|date:'M d, Y H:i' }}
+            {% else %}
+              <span class="text-muted">Not set</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if semester.is_deleted %}
+              <span class="badge bg-secondary">Archived</span>
+            {% else %}
+              {% for state in semester.level_states.all %}
+                <span class="badge bg-success">{{ state.get_level_display }}</span>
+              {% empty %}
+                <span class="badge bg-light text-dark border">No levels</span>
+              {% endfor %}
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if not semester.is_deleted %}
+              <a href="{% url 'academics:registration_window' semester.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-calendar-range"></i> Window
+              </a>
+              <a href="{% url 'academics:semester_update' semester.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+            {% endif %}
+            <form method="post" action="{% url 'academics:semester_archive_toggle' semester.pk %}" class="d-inline"
+                  onsubmit="return confirm('{% if semester.is_deleted %}Restore{% else %}Archive{% endif %} this semester?');">
+              {% csrf_token %}
+              {% if semester.is_deleted %}
+                <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>
+              {% else %}
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-archive"></i> Archive</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No semesters found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endblock %}

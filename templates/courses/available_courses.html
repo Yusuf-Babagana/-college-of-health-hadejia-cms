@@ -1,0 +1,94 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Register Courses · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Register Courses</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Register Courses</h4>
+  <a href="{% url 'courses:my_registrations' %}" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-journal-check me-1"></i> My Registered Courses
+  </a>
+</div>
+
+{% if not student_profile %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No student profile is linked to your account. Contact the Registrar.
+  </div>
+{% elif not active_semester %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No semester is currently active. Course registration is not open yet.
+  </div>
+{% elif not is_cleared %}
+  <div class="alert alert-danger">
+    <i class="bi bi-exclamation-octagon-fill me-1"></i>
+    You have an outstanding balance for {{ active_semester.session.name }}. Course registration is locked until
+    you clear your fees. <a href="{% url 'finance:my_invoices' %}" class="alert-link">View / Pay your invoice</a>.
+  </div>
+{% elif not active_semester.is_registration_open %}
+  <div class="alert alert-warning">
+    <i class="bi bi-clock-history me-1"></i>
+    Registration for {{ active_semester }} is not currently open.
+    {% if active_semester.registration_start %}
+      It runs from {{ active_semester.registration_start|date:'M d, Y H:i' }} to {{ active_semester.registration_end|date:'M d, Y H:i' }}.
+    {% else %}
+      The Registrar has not yet set the registration window.
+    {% endif %}
+  </div>
+{% else %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <p class="text-muted mb-0">Open courses in your department and level for <strong>{{ active_semester }}</strong>.</p>
+    <span class="badge {% if current_units >= max_units %}bg-danger{% else %}badge-teal{% endif %}">
+      {{ current_units }} / {{ max_units }} units registered
+    </span>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Units</th>
+            <th>Lecturer</th>
+            <th>Seats</th>
+            <th class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for offering in offerings %}
+          {% with projected=current_units|add:offering.course.credit_units %}
+          <tr>
+            <td><span class="badge badge-teal">{{ offering.course.code }}</span></td>
+            <td>{{ offering.course.title }}</td>
+            <td>{{ offering.course.credit_units }}</td>
+            <td>{% if offering.lecturer %}{{ offering.lecturer.user.get_full_name }}{% else %}<span class="text-muted">TBA</span>{% endif %}</td>
+            <td>
+              {{ offering.registered_count }}/{{ offering.capacity }}
+              {% if offering.is_full %}<span class="badge bg-danger">Full</span>{% endif %}
+            </td>
+            <td class="text-end">
+              <form method="post" action="{% url 'courses:register_course' offering.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-primary" {% if offering.is_full or projected > max_units %}disabled{% endif %}>
+                  <i class="bi bi-plus-circle"></i> Register
+                </button>
+              </form>
+              {% if projected > max_units and not offering.is_full %}
+                <div class="text-danger small mt-1">Exceeds unit cap</div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-4">No courses available to register right now.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

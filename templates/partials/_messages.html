@@ -1,0 +1,10 @@
+{% if messages %}
+  <div class="{% if user.is_authenticated %}mb-3{% else %}position-fixed top-0 start-50 translate-middle-x mt-3{% endif %}" style="z-index: 1080; width: min(90vw, 480px);">
+    {% for message in messages %}
+      <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

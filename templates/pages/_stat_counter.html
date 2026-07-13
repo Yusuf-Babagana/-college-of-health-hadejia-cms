@@ -1,0 +1,25 @@
+<div class="pub-stat-card"
+     x-data="{ count: 0, started: false, target: {{ target }} }"
+     x-init="
+       const el = $el;
+       const observer = new IntersectionObserver((entries) => {
+         if (entries[0].isIntersecting && !started) {
+           started = true;
+           const duration = 1200;
+           const startTime = performance.now();
+           const step = (now) => {
+             const progress = Math.min((now - startTime) / duration, 1);
+             count = Math.floor(progress * target);
+             if (progress < 1) requestAnimationFrame(step);
+             else count = target;
+           };
+           requestAnimationFrame(step);
+           observer.disconnect();
+         }
+       }, { threshold: 0.4 });
+       observer.observe(el);
+     ">
+  <div class="text-brand fs-3 mb-1"><i class="bi {{ icon }}"></i></div>
+  <div class="pub-stat-value" x-text="count.toLocaleString()">0</div>
+  <div class="pub-stat-label">{{ label }}</div>
+</div>

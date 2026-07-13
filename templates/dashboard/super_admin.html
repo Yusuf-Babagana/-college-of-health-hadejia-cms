@@ -1,0 +1,158 @@
+{% extends 'dashboard_base.html' %}
+{% load format_tags %}
+
+{% block title %}Super Admin Dashboard · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Dashboard</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Welcome, {{ user.get_full_name|default:user.username }}</h4>
+<p class="text-muted mb-4">
+  Full system overview
+  {% for session in current_sessions %}&middot; {{ session.name }} {% endfor %}
+  {% for state in level_states %} &middot; {{ state.get_level_display }}: {{ state.semester.get_name_display }}{% endfor %}
+</p>
+
+<div class="row g-3 mb-4">
+  {% include 'partials/_stat_card.html' with icon='bi-people-fill' label='Total Users' value=total_users %}
+  {% include 'partials/_stat_card.html' with icon='bi-mortarboard-fill' label='Students' value=total_students %}
+  {% include 'partials/_stat_card.html' with icon='bi-person-workspace' label='Staff' value=total_staff %}
+  {% include 'partials/_stat_card.html' with icon='bi-cash-stack' label='Revenue (Current Sessions)' value=revenue_this_session|default:0|naira %}
+</div>
+
+<div class="row g-3 mb-4">
+  {% include 'partials/_stat_card.html' with icon='bi-building' label='Departments' value=total_departments %}
+  {% include 'partials/_stat_card.html' with icon='bi-journal-bookmark-fill' label='Courses' value=total_courses %}
+  {% include 'partials/_stat_card.html' with icon='bi-collection-fill' label='Course Offerings' value=total_offerings %}
+  {% include 'partials/_stat_card.html' with icon='bi-award-fill' label='Published Results' value=published_results_count %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-pie-chart-fill me-2 text-brand"></i>Users by Role</div>
+      <div class="list-group list-group-flush">
+        {% for row in role_breakdown %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+          {{ row.label }}
+          <span class="badge badge-teal">{{ row.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-cash-coin me-2 text-brand"></i>Finance Snapshot</div>
+      <div class="card-body">
+        {% if current_session %}
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">Collected</span>
+            <span class="fw-semibold">{{ revenue_this_session|default:0|naira }}</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">Outstanding</span>
+            <span class="fw-semibold text-danger">{{ outstanding_this_session|default:0|naira }}</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="text-muted">Defaulters</span>
+            <span class="fw-semibold">{{ defaulter_count|default:0 }}</span>
+          </div>
+        {% else %}
+          <p class="text-muted small mb-0">No session in progress for any level.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-lightning-charge-fill me-2 text-brand"></i>Shortcuts</div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'finance:defaulter_list' %}" class="list-group-item list-group-item-action">Fee Defaulters Report</a>
+        <a href="{% url 'results:transcript_search' %}" class="list-group-item list-group-item-action">Generate Student Transcript</a>
+        <a href="{% url 'admin:index' %}" class="list-group-item list-group-item-action">Django System Admin (Full)</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="my-4">
+
+<h5 class="mb-3"><i class="bi bi-gear-wide-connected me-2 text-brand"></i>System Administration</h5>
+<p class="text-muted small mb-3">
+  Every resource Django Admin can manage, organized here in the system's own interface. Items without a
+  dedicated screen yet link straight to their Django Admin record editor.
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-person-badge-fill me-2 text-brand"></i>Identity &amp; Access</div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'accounts:user_list' %}" class="list-group-item list-group-item-action">Users</a>
+        <a href="{% url 'accounts:user_create' %}" class="list-group-item list-group-item-action">Create User</a>
+        <a href="{% url 'admin:auth_group_changelist' %}" class="list-group-item list-group-item-action">
+          Groups &amp; Role Permissions <span class="badge bg-secondary float-end">Django Admin</span>
+        </a>
+        <a href="{% url 'departments:department_list' %}" class="list-group-item list-group-item-action">Departments</a>
+        <a href="{% url 'lecturers:lecturer_list' %}" class="list-group-item list-group-item-action">Lecturers</a>
+        <a href="{% url 'students:student_list' %}" class="list-group-item list-group-item-action">Students</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-journal-bookmark-fill me-2 text-brand"></i>Academics</div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'academics:session_list' %}" class="list-group-item list-group-item-action">Academic Sessions</a>
+        <a href="{% url 'academics:semester_list' %}" class="list-group-item list-group-item-action">Semesters &amp; Registration Windows</a>
+        <a href="{% url 'courses:course_list' %}" class="list-group-item list-group-item-action">Course Catalog</a>
+        <a href="{% url 'courses:course_offering_list' %}" class="list-group-item list-group-item-action">Course Offerings (All Departments)</a>
+        <a href="{% url 'courses:department_registrations' %}" class="list-group-item list-group-item-action">Course Registration Oversight</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-cash-coin me-2 text-brand"></i>Finance</div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'finance:fee_type_list' %}" class="list-group-item list-group-item-action">Fee Types</a>
+        <a href="{% url 'finance:fee_structure_list' %}" class="list-group-item list-group-item-action">Fee Structures</a>
+        <a href="{% url 'finance:invoice_list' %}" class="list-group-item list-group-item-action">Invoices</a>
+        <a href="{% url 'finance:payment_list' %}" class="list-group-item list-group-item-action">Payments</a>
+        <a href="{% url 'finance:defaulter_list' %}" class="list-group-item list-group-item-action">Defaulters Report</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-award-fill me-2 text-brand"></i>Results &amp; Grading</div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'results:grade_band_list' %}" class="list-group-item list-group-item-action">Grading Scale</a>
+        <a href="{% url 'results:grade_review_list' %}" class="list-group-item list-group-item-action">Grade Review Queue (HOD)</a>
+        <a href="{% url 'results:approved_grade_list' %}" class="list-group-item list-group-item-action">Compile &amp; Publish Results</a>
+        <a href="{% url 'results:transcript_search' %}" class="list-group-item list-group-item-action">Generate Student Transcript</a>
+        <a href="{% url 'admin:results_grade_changelist' %}" class="list-group-item list-group-item-action">
+          All Grade Records <span class="badge bg-secondary float-end">Django Admin</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-database-fill-gear me-2 text-brand"></i>Advanced</div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'admin:index' %}" class="list-group-item list-group-item-action">
+          Full Django System Admin <span class="badge bg-secondary float-end">Django Admin</span>
+        </a>
+        <span class="list-group-item disabled">System Audit Log <span class="badge bg-secondary float-end">Soon</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

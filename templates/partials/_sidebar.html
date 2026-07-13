@@ -1,0 +1,40 @@
+<aside class="sidebar d-flex flex-column" id="appSidebar">
+  <div class="brand d-flex align-items-center gap-2">
+    <i class="bi bi-heart-pulse-fill fs-4 text-white"></i>
+    <div>
+      <div class="fw-semibold text-white lh-sm">{{ COLLEGE_SHORT_NAME }}</div>
+      <div class="small" style="color: rgba(255,255,255,.6);">{{ user.get_role_display }}</div>
+    </div>
+  </div>
+
+  <nav class="nav flex-column flex-grow-1 py-2">
+    <div class="nav-section-title">Main</div>
+    <a class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard:redirect' %}">
+      <i class="bi bi-speedometer2 me-2"></i> Dashboard
+    </a>
+
+    <div class="nav-section-title">Account</div>
+    <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" href="{% url 'accounts:profile' %}">
+      <i class="bi bi-person-circle me-2"></i> My Profile
+    </a>
+    <a class="nav-link {% if request.resolver_match.url_name == 'password_change' %}active{% endif %}" href="{% url 'accounts:password_change' %}">
+      <i class="bi bi-key-fill me-2"></i> Change Password
+    </a>
+
+    {% if user.is_ict_admin or user.is_super_admin or user.is_superuser %}
+    <div class="nav-section-title">Administration</div>
+    <a class="nav-link" href="{% url 'admin:index' %}">
+      <i class="bi bi-gear-fill me-2"></i> System Admin
+    </a>
+    {% endif %}
+  </nav>
+
+  <div class="p-3 border-top" style="border-color: rgba(255,255,255,.08) !important;">
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm btn-outline-light w-100">
+        <i class="bi bi-box-arrow-right me-1"></i> Sign Out
+      </button>
+    </form>
+  </div>
+</aside>

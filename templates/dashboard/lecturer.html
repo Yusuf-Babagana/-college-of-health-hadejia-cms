@@ -1,0 +1,81 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Lecturer Dashboard · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Dashboard</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Welcome, {{ user.get_full_name|default:user.username }}</h4>
+
+{% if not lecturer_profile %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Your account has no linked Lecturer profile. Contact the ICT Administrator.
+  </div>
+{% else %}
+  <p class="text-muted mb-4">
+    {{ department.name }} ({{ department.code }})
+    &middot; Head of Department:
+    {% if hod %}{{ hod.user.get_full_name }}{% else %}<span class="text-muted">Unassigned</span>{% endif %}
+  </p>
+
+  {% if not current_semesters %}
+    <div class="alert alert-warning">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>
+      No semester is in progress for any level. Your teaching workload will appear here once the Registrar opens one.
+    </div>
+  {% else %}
+  <div class="row g-3 mb-4">
+    {% include 'partials/_stat_card.html' with icon='bi-book-half' label='Assigned Courses' value=total_courses|default:0 %}
+    {% include 'partials/_stat_card.html' with icon='bi-people-fill' label='Total Students' value=total_students|default:0 %}
+    {% include 'partials/_stat_card.html' with icon='bi-hourglass-split' label='Teaching Load (Units)' value=total_units|default:0 %}
+    {% include 'partials/_stat_card.html' with icon='bi-pencil-square' label='Pending Grade Entries' value=pending_grade_entries|default:0 %}
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-journal-bookmark-fill me-2 text-brand"></i>My Assigned Courses</span>
+      <span class="text-muted small">{% for sem in current_semesters %}{{ sem }}{% if not forloop.last %} &middot; {% endif %}{% endfor %}</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Units</th>
+            <th>Students</th>
+            <th class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for offering in assigned_offerings %}
+          <tr>
+            <td><span class="badge badge-teal">{{ offering.course.code }}</span></td>
+            <td>{{ offering.course.title }}</td>
+            <td>{{ offering.course.credit_units }}</td>
+            <td>{{ offering.registered_count }}/{{ offering.capacity }}</td>
+            <td class="text-end">
+              <a href="{% url 'results:class_list' offering.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-people"></i> Class List
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="text-center text-muted py-3">No courses assigned to you this semester yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-header bg-transparent"><i class="bi bi-link-45deg me-2 text-brand"></i>Quick Links</div>
+  <div class="list-group list-group-flush">
+    <a href="{% url 'results:lecturer_offerings' %}" class="list-group-item list-group-item-action">Grade Entry (CA / Exam / Total)</a>
+    <a href="{% url 'results:lecturer_offerings' %}" class="list-group-item list-group-item-action">Class Lists</a>
+    <span class="list-group-item disabled">Attendance <span class="badge bg-secondary float-end">Soon</span></span>
+  </div>
+</div>
+{% endblock %}

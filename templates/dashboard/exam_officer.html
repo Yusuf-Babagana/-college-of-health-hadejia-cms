@@ -1,0 +1,27 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Exam Office Dashboard · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Dashboard</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Welcome, {{ user.get_full_name|default:user.username }}</h4>
+<p class="text-muted mb-4">Examinations and results overview.</p>
+
+<div class="row g-3 mb-4">
+  {% include 'partials/_stat_card.html' with icon='bi-hourglass-split' label='Pending HOD Approval' value=pending_approval|default:0 %}
+  {% include 'partials/_stat_card.html' with icon='bi-file-earmark-check' label='Ready to Publish' value=pending_publish|default:0 %}
+  {% include 'partials/_stat_card.html' with icon='bi-broadcast' label='Published Results' value=published_count|default:0 %}
+  {% include 'partials/_stat_card.html' with icon='bi-file-earmark-pdf' label='Transcript Requests' value='—' %}
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-transparent"><i class="bi bi-link-45deg me-2 text-brand"></i>Quick Links</div>
+  <div class="list-group list-group-flush">
+    <a href="{% url 'results:grade_collation_list' %}" class="list-group-item list-group-item-action">Grade Collation &amp; Review</a>
+    <a href="{% url 'results:approved_grade_list' %}" class="list-group-item list-group-item-action">Compile &amp; Publish Results</a>
+    <a href="{% url 'results:master_broadsheet' %}" class="list-group-item list-group-item-action">Master Broadsheet</a>
+    <a href="{% url 'results:transcript_search' %}" class="list-group-item list-group-item-action">Generate Student Transcript</a>
+    <a href="{% url 'results:grade_band_list' %}" class="list-group-item list-group-item-action">Grading Scale</a>
+  </div>
+</div>
+{% endblock %}

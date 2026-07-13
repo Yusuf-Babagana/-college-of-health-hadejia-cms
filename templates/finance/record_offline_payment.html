@@ -1,0 +1,22 @@
+{% extends 'dashboard_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Record Offline Payment · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'finance:payment_list' %}">Payments</a></li>
+  <li class="breadcrumb-item active">Record Offline Payment</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="card-title mb-1">Record Offline Payment</h5>
+        <p class="text-muted small mb-4">For bank teller deposits reported directly to Finance.</p>
+        {% crispy form %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

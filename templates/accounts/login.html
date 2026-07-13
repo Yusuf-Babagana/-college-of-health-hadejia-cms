@@ -1,0 +1,12 @@
+{% extends 'auth_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Sign In · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+
+{% block auth_body %}
+  <p class="text-center text-muted small mb-4">Sign in to your account</p>
+  {% crispy form %}
+  <div class="text-center mt-3">
+    <a href="{% url 'accounts:password_reset' %}" class="small">Forgot your password?</a>
+  </div>
+{% endblock %}

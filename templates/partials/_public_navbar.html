@@ -1,0 +1,34 @@
+{% load static %}
+<nav class="navbar navbar-expand-lg navbar-public sticky-top">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold" href="{% url 'dashboard:home' %}">
+      <img src="{% static 'img/brand/mark.svg' %}" alt="" width="36" height="36" class="rounded">
+      <span class="d-none d-sm-inline">{{ COLLEGE_SHORT_NAME }}</span>
+    </a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#publicNav"
+            aria-controls="publicNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="publicNav">
+      <ul class="navbar-nav mx-auto my-3 my-lg-0 gap-lg-1">
+        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard:home' %}">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
+        <li class="nav-item"><a class="nav-link" href="#admissions">Admissions</a></li>
+        <li class="nav-item"><a class="nav-link" href="#departments">Departments</a></li>
+        <li class="nav-item"><a class="nav-link" href="#news">News</a></li>
+        <li class="nav-item"><a class="nav-link" href="#contact">Contact</a></li>
+      </ul>
+
+      <div class="d-flex flex-column flex-lg-row gap-2">
+        <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Login
+        </a>
+        <a href="#admissions" class="btn btn-primary btn-sm">
+          <i class="bi bi-pencil-square me-1"></i> Apply Now
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>

@@ -1,0 +1,70 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Level Semesters · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'academics:semester_list' %}">Semesters</a></li>
+  <li class="breadcrumb-item active">Level Semesters</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Level Semesters</h4>
+</div>
+<p class="text-muted small mb-3">
+  <i class="bi bi-info-circle"></i> Each level runs its own current semester — e.g. Level 100 can be in First
+  Semester while Level 200 is already in Second. Everything a student sees (available courses, fees, results)
+  follows the semester set for their level here.
+</p>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Level</th>
+          <th>Current Semester</th>
+          <th>Session</th>
+          <th style="min-width: 320px;">Set Semester</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in level_rows %}
+        <tr>
+          <td class="fw-semibold">{{ row.label }}</td>
+          <td>
+            {% if row.state %}
+              <span class="badge bg-success">{{ row.state.semester.get_name_display }}</span>
+            {% else %}
+              <span class="badge bg-light text-dark border">No semester in progress</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if row.state %}
+              <span class="badge badge-teal">{{ row.state.semester.session.name }}</span>
+            {% else %}
+              <span class="text-muted">&mdash;</span>
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" class="d-flex gap-2">
+              {% csrf_token %}
+              <input type="hidden" name="level" value="{{ row.level }}">
+              <select name="semester" class="form-select form-select-sm">
+                <option value="">— No semester —</option>
+                {% for semester in semesters %}
+                  <option value="{{ semester.pk }}"
+                          {% if row.state and row.state.semester_id == semester.pk %}selected{% endif %}>
+                    {{ semester }}
+                  </option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

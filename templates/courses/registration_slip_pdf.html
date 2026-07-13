@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #1f2937; }
+    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #059669; padding-bottom: 12px; }
+    .header h1 { font-size: 14pt; color: #047857; margin: 0 0 4px; }
+    .header h2 { font-size: 12pt; margin: 0; color: #333; }
+    .meta { margin-bottom: 16px; }
+    .meta td { padding: 3px 8px 3px 0; font-size: 10pt; }
+    .meta .label { color: #555; width: 140px; }
+    table.courses { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    table.courses th, table.courses td { border: 1px solid #ccc; padding: 6px 8px; font-size: 10pt; text-align: left; }
+    table.courses th { background-color: #ecfdf5; color: #047857; }
+    .total-row td { font-weight: bold; background-color: #f9fafb; }
+    .footer { margin-top: 40px; font-size: 9pt; color: #666; }
+    .signature { margin-top: 50px; }
+    .signature-line { border-top: 1px solid #333; width: 220px; margin-top: 40px; padding-top: 4px; font-size: 9pt; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>{{ college_name }}</h1>
+    <h2>Course Registration Slip</h2>
+  </div>
+
+  <table class="meta">
+    <tr><td class="label">Matric Number:</td><td>{{ student.matric_number }}</td></tr>
+    <tr><td class="label">Name:</td><td>{{ student.user.get_full_name }}</td></tr>
+    <tr><td class="label">Department:</td><td>{{ student.department.name }}</td></tr>
+    <tr><td class="label">Level:</td><td>{{ student.get_level_display }}</td></tr>
+    <tr><td class="label">Semester:</td><td>{% if semester %}{{ semester }}{% else %}No active semester{% endif %}</td></tr>
+  </table>
+
+  <table class="courses">
+    <thead>
+      <tr>
+        <th>Course Code</th>
+        <th>Course Title</th>
+        <th>Credit Units</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for reg in registrations %}
+      <tr>
+        <td>{{ reg.course_offering.course.code }}</td>
+        <td>{{ reg.course_offering.course.title }}</td>
+        <td>{{ reg.course_offering.course.credit_units }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">No courses registered for this semester.</td></tr>
+      {% endfor %}
+    </tbody>
+    <tbody>
+      <tr class="total-row">
+        <td colspan="2">Total Credit Units</td>
+        <td>{{ total_units }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="signature">
+    <div class="signature-line">Student Signature</div>
+  </div>
+
+  <div class="footer">
+    Generated on {% now "F j, Y H:i" %} - This is a system-generated document and does not require an official stamp unless requested.
+  </div>
+</body>
+</html>

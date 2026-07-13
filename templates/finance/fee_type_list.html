@@ -1,0 +1,79 @@
+{% extends 'dashboard_base.html' %}
+{% load format_tags %}
+
+{% block title %}Fee Types · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Fee Types</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h4 class="mb-1">Fee Types</h4>
+    <p class="text-muted small mb-0">The activities the school collects money for — Tuition, Registration, Practical Fee, Board Exam Fee, etc. Each one gets its own fee structure and its own invoice.</p>
+  </div>
+  <a href="{% url 'finance:fee_type_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i> Add Fee Type
+  </a>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-end">
+      {% if show_archived %}
+        <a href="?" class="btn btn-outline-secondary btn-sm">Show Active</a>
+      {% else %}
+        <a href="?archived=1" class="btn btn-outline-secondary btn-sm">Show Archived</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fee_type in fee_types %}
+        <tr>
+          <td class="fw-semibold">{{ fee_type.name }}</td>
+          <td class="small text-muted">{{ fee_type.description|default:'—' }}</td>
+          <td>
+            {% if fee_type.is_deleted %}
+              <span class="badge bg-secondary">Archived</span>
+            {% else %}
+              <span class="badge bg-success">Active</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if not fee_type.is_deleted %}
+              <a href="{% url 'finance:fee_type_update' fee_type.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+            {% endif %}
+            <form method="post" action="{% url 'finance:fee_type_archive_toggle' fee_type.pk %}" class="d-inline"
+                  onsubmit="return confirm('{% if fee_type.is_deleted %}Restore{% else %}Archive{% endif %} this fee type?');">
+              {% csrf_token %}
+              {% if fee_type.is_deleted %}
+                <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>
+              {% else %}
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-archive"></i> Archive</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-muted py-4">No fee types found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endblock %}

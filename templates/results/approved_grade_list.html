@@ -1,0 +1,94 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Compile &amp; Publish Results · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Compile Results</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-3">Compile &amp; Publish Results</h4>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <select name="department" class="form-select">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <select name="semester" class="form-select">
+          <option value="">All Semesters</option>
+          {% for sem in semesters %}
+            <option value="{{ sem.pk }}" {% if sem.pk|stringformat:'s' == current_semester %}selected{% endif %}>{{ sem }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search me-1"></i> Filter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-transparent">Course Offerings Ready to Publish</div>
+  <div class="list-group list-group-flush">
+    {% for offering in offerings %}
+    <div class="list-group-item d-flex justify-content-between align-items-center">
+      <div>
+        <span class="badge badge-teal">{{ offering.course.code }}</span> {{ offering.course.title }}
+        <span class="text-muted small">- {{ offering.semester }}</span>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'results:broadsheet_pdf' offering.pk %}" class="btn btn-sm btn-outline-secondary" target="_blank">
+          <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+        </a>
+        <a href="{% url 'results:broadsheet_csv' offering.pk %}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-filetype-csv me-1"></i> CSV
+        </a>
+        <form method="post" action="{% url 'results:publish_grades' offering.pk %}"
+              onsubmit="return confirm('Publish all approved results for {{ offering.course.code }}? Students will immediately be able to see them.');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-broadcast me-1"></i> Publish</button>
+        </form>
+      </div>
+    </div>
+    {% empty %}
+    <div class="list-group-item text-muted text-center py-4">No offerings with approved, unpublished grades.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<h5 class="mb-3">Approved Grades (Detail)</h5>
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Matric Number</th>
+          <th>Name</th>
+          <th>Course</th>
+          <th>Total</th>
+          <th>Letter</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for grade in grades %}
+        <tr>
+          <td>{{ grade.student.matric_number }}</td>
+          <td>{{ grade.student.user.get_full_name }}</td>
+          <td>{{ grade.course_offering.course.code }}</td>
+          <td>{{ grade.total_score }}</td>
+          <td>{{ grade.letter_grade|default:'—' }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No approved grades yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include 'partials/_pagination.html' %}
+{% endblock %}

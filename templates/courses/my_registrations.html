@@ -1,0 +1,70 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}My Schedule · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">My Schedule</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-1">
+  <h4 class="mb-0">My Schedule</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'courses:available_courses' %}" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-plus-circle me-1"></i> Register More
+    </a>
+    <a href="{% url 'courses:registration_slip' %}" class="btn btn-primary btn-sm" target="_blank">
+      <i class="bi bi-printer me-1"></i> Print Registration Slip
+    </a>
+  </div>
+</div>
+{% if active_semester %}<p class="text-muted small mb-3">{{ active_semester }} &middot; {{ total_units }} credit unit{{ total_units|pluralize }}</p>{% endif %}
+
+{% if not student_profile %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No student profile is linked to your account. Contact the Registrar.
+  </div>
+{% elif not active_semester %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No semester is currently active.
+  </div>
+{% else %}
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Code</th>
+          <th>Title</th>
+          <th>Units</th>
+          <th>Semester</th>
+          <th>Lecturer</th>
+          <th class="text-end">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for reg in registrations %}
+        <tr>
+          <td><span class="badge badge-teal">{{ reg.course_offering.course.code }}</span></td>
+          <td>{{ reg.course_offering.course.title }}</td>
+          <td>{{ reg.course_offering.course.credit_units }}</td>
+          <td>{{ reg.course_offering.semester }}</td>
+          <td>{% if reg.course_offering.lecturer %}{{ reg.course_offering.lecturer.user.get_full_name }}{% else %}<span class="text-muted">TBA</span>{% endif %}</td>
+          <td class="text-end">
+            <form method="post" action="{% url 'courses:drop_course' reg.course_offering.pk %}" class="d-inline"
+                  onsubmit="return confirm('Drop {{ reg.course_offering.course.code }}?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-dash-circle"></i> Drop
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">You have not registered any courses this semester yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #1f2937; }
+    .header { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #059669; padding-bottom: 12px; }
+    .header h1 { font-size: 14pt; color: #047857; margin: 0 0 4px; }
+    .header h2 { font-size: 12pt; margin: 0; color: #333; }
+    .meta { margin-bottom: 12px; }
+    .meta td { padding: 3px 8px 3px 0; font-size: 10pt; }
+    .meta .label { color: #555; width: 140px; }
+    table.grades { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    table.grades th, table.grades td { border: 1px solid #ccc; padding: 5px 8px; font-size: 9pt; text-align: left; }
+    table.grades th { background-color: #ecfdf5; color: #047857; }
+    .summary { margin-top: 16px; font-size: 9pt; }
+    .footer { margin-top: 30px; font-size: 8pt; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>{{ college_name }}</h1>
+    <h2>Course Result Broadsheet</h2>
+  </div>
+
+  <table class="meta">
+    <tr><td class="label">Course:</td><td>{{ offering.course.code }} - {{ offering.course.title }}</td></tr>
+    <tr><td class="label">Department:</td><td>{{ offering.course.department.name }}</td></tr>
+    <tr><td class="label">Semester:</td><td>{{ offering.semester }}</td></tr>
+    <tr><td class="label">Lecturer:</td><td>{% if offering.lecturer %}{{ offering.lecturer.user.get_full_name }}{% else %}Unassigned{% endif %}</td></tr>
+  </table>
+
+  <table class="grades">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Matric Number</th>
+        <th>Name</th>
+        <th>CA</th>
+        <th>Exam</th>
+        <th>Total</th>
+        <th>Grade</th>
+        <th>Points</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for grade in grades %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ grade.student.matric_number }}</td>
+        <td>{{ grade.student.user.get_full_name }}</td>
+        <td>{{ grade.ca_score }}</td>
+        <td>{{ grade.exam_score }}</td>
+        <td>{{ grade.total_score }}</td>
+        <td>{{ grade.letter_grade|default:'-' }}</td>
+        <td>{{ grade.grade_point|default:'-' }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8">No HOD-approved grades yet for this course.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="summary">
+    Total Students: {{ total_count }} &nbsp;&nbsp;|&nbsp;&nbsp; Passed: {{ pass_count }} &nbsp;&nbsp;|&nbsp;&nbsp; Failed: {{ fail_count }}
+  </div>
+
+  <div class="footer">
+    Generated on {% now "F j, Y H:i" %} - This is a system-generated document.
+  </div>
+</body>
+</html>

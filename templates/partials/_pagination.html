@@ -1,0 +1,35 @@
+{% load pagination_tags %}
+{% if page_obj %}
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 mt-3">
+  <p class="text-muted small mb-0">
+    Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+  </p>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav aria-label="Pagination">
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+        <a class="page-link" href="{% if page_obj.has_previous %}{% querystring_replace page=page_obj.previous_page_number %}{% else %}#{% endif %}" aria-label="Previous">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+      </li>
+      {% elided_page_range page_obj.paginator page_obj.number as page_range %}
+      {% for num in page_range %}
+        {% if num == page_obj.paginator.ELLIPSIS %}
+          <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+        {% else %}
+          <li class="page-item {% if num == page_obj.number %}active{% endif %}">
+            <a class="page-link" href="{% querystring_replace page=num %}">{{ num }}</a>
+          </li>
+        {% endif %}
+      {% endfor %}
+      <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+        <a class="page-link" href="{% if page_obj.has_next %}{% querystring_replace page=page_obj.next_page_number %}{% else %}#{% endif %}" aria-label="Next">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endif %}

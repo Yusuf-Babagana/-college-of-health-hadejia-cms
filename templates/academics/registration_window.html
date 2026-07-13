@@ -1,0 +1,22 @@
+{% extends 'dashboard_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Registration Window · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'academics:semester_list' %}">Semesters</a></li>
+  <li class="breadcrumb-item active">Registration Window</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="card-title mb-1">Course Registration Window</h5>
+        <p class="text-muted small mb-4">Semester: <strong>{{ semester }}</strong></p>
+        {% crispy form %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

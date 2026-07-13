@@ -1,0 +1,70 @@
+/*
+ * COHST Hadejia branding for the Jazzmin admin theme.
+ * Targets real selectors/CSS variables confirmed against the installed
+ * django-jazzmin package (AdminLTE 4 + Bootstrap 5.3) rather than the
+ * older AdminLTE 3 "navbar-teal"/"sidebar-dark-success" utility classes,
+ * which this Jazzmin release no longer ships.
+ */
+
+:root {
+  --bs-primary: #2563eb;
+  --bs-primary-rgb: 37, 99, 235;
+}
+
+/* Top navbar */
+#jazzy-navbar {
+  border-bottom: 3px solid #0ea5e9 !important;
+}
+
+/* Sidebar */
+#jazzy-sidebar {
+  background-color: #1e3a8a !important;
+  --lte-sidebar-color: #dbeafe;
+  --lte-sidebar-hover-color: #ffffff;
+  --lte-sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --lte-sidebar-active-color: #ffffff;
+  --lte-sidebar-menu-active-bg: #2563eb;
+  --lte-sidebar-menu-active-color: #ffffff;
+  --lte-sidebar-submenu-bg: transparent;
+  --lte-sidebar-submenu-color: #dbeafe;
+  --lte-sidebar-submenu-hover-color: #ffffff;
+  --lte-sidebar-submenu-hover-bg: rgba(255, 255, 255, 0.08);
+  --lte-sidebar-header-color: rgba(255, 255, 255, 0.6);
+}
+
+#jazzy-sidebar .brand-link,
+#jazzy-sidebar .sidebar-brand {
+  color: #ffffff !important;
+  border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+#jazzy-logo img {
+  border-radius: 8px;
+}
+
+/* Footer */
+.app-footer {
+  background-color: #ffffff;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Login screen - echo the same gradient used on the main site's login page */
+.login-page {
+  background: linear-gradient(135deg, #1d4ed8, #0284c7) !important;
+}
+
+.login-box .card,
+.card-outline.card-primary {
+  border-top: 3px solid #2563eb !important;
+}
+
+/* Dashboard statistics widgets (templates/admin/index.html) */
+.cohst-stat-card {
+  border-left: 4px solid #2563eb;
+}
+
+.cohst-stat-card .cohst-stat-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #2563eb;
+}

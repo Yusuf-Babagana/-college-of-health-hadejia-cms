@@ -1,0 +1,90 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Departments · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Departments</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Departments</h4>
+  <a href="{% url 'departments:department_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i> Add Department
+  </a>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-8">
+        <input type="text" name="q" class="form-control" placeholder="Search name or code" value="{{ search_query }}">
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-outline-primary">
+          <i class="bi bi-search me-1"></i> Filter
+        </button>
+      </div>
+      <div class="col-md-2 d-grid">
+        {% if show_archived %}
+          <a href="?q={{ search_query }}" class="btn btn-outline-secondary">Show Active</a>
+        {% else %}
+          <a href="?q={{ search_query }}&archived=1" class="btn btn-outline-secondary">Show Archived</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Name</th>
+          <th>Code</th>
+          <th>Head of Department</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dept in departments %}
+        <tr>
+          <td>{{ dept.name }}</td>
+          <td><span class="badge badge-teal">{{ dept.code }}</span></td>
+          <td>{% if dept.hod %}{{ dept.hod.user.get_full_name }}{% else %}<span class="text-muted">Unassigned</span>{% endif %}</td>
+          <td>
+            {% if dept.is_deleted %}
+              <span class="badge bg-secondary">Archived</span>
+            {% else %}
+              <span class="badge bg-success">Active</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if not dept.is_deleted %}
+              <a href="{% url 'departments:assign_hod' dept.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-person-badge"></i> HOD
+              </a>
+              <a href="{% url 'departments:department_update' dept.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+            {% endif %}
+            <form method="post" action="{% url 'departments:department_archive_toggle' dept.pk %}" class="d-inline"
+                  onsubmit="return confirm('{% if dept.is_deleted %}Restore{% else %}Archive{% endif %} {{ dept.name }}?');">
+              {% csrf_token %}
+              {% if dept.is_deleted %}
+                <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>
+              {% else %}
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-archive"></i> Archive</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No departments found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endblock %}

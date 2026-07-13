@@ -1,0 +1,95 @@
+{% extends 'dashboard_base.html' %}
+{% load format_tags %}
+
+{% block title %}Payments · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Payments</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Payments</h4>
+  <a href="{% url 'finance:record_offline_payment' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-cash-coin me-1"></i> Record Offline Payment
+  </a>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-3">
+        <select name="method" class="form-select">
+          <option value="">All Methods</option>
+          {% for value, label in method_choices %}
+            <option value="{{ value }}" {% if value == current_method %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select name="status" class="form-select">
+          <option value="">All Statuses</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if value == current_status %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search me-1"></i> Filter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Reference</th>
+          <th>Student</th>
+          <th>Amount</th>
+          <th>Method</th>
+          <th>Status</th>
+          <th>Verified By</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for payment in payments %}
+        <tr>
+          <td class="small">{{ payment.reference }}</td>
+          <td>
+            <span class="badge badge-teal">{{ payment.invoice.student.matric_number }}</span>
+            {{ payment.invoice.student.user.get_full_name }}
+          </td>
+          <td>{{ payment.amount|naira }}</td>
+          <td>{{ payment.get_method_display }}</td>
+          <td>
+            {% if payment.status == 'successful' %}
+              <span class="badge bg-success">Successful</span>
+            {% elif payment.status == 'failed' %}
+              <span class="badge bg-danger">Failed</span>
+            {% else %}
+              <span class="badge bg-secondary">Pending</span>
+            {% endif %}
+          </td>
+          <td class="small">{{ payment.verified_by|default:'—' }}</td>
+          <td class="text-end">
+            {% if payment.method == 'online' and payment.status == 'pending' %}
+              <form method="post" action="{% url 'finance:verify_online_payment' payment.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-arrow-repeat"></i> Verify
+                </button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No payments found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endblock %}

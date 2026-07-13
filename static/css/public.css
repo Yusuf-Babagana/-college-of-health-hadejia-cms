@@ -1,0 +1,351 @@
+/*
+ * Public marketing homepage styling. Kept separate from theme.css (the
+ * internal app shell) since these rules only ever apply to the public
+ * site and would just be dead weight on every dashboard page otherwise.
+ */
+
+:root {
+  --pub-emerald: #2563eb;
+  --pub-emerald-dark: #1d4ed8;
+  --pub-teal: #0ea5e9;
+  --pub-teal-dark: #0284c7;
+  --pub-ink: #0f2547;
+  --pub-surface-muted: #f0f6fd;
+}
+
+/* ---------- Navbar ---------- */
+.navbar-public {
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(37, 99, 235, 0.12);
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.navbar-public .nav-link {
+  font-weight: 500;
+  color: var(--pub-ink);
+  padding: 0.5rem 0.9rem;
+}
+
+.navbar-public .nav-link:hover {
+  color: var(--pub-emerald);
+}
+
+/* ---------- Section rhythm ---------- */
+.pub-section {
+  padding: 4.5rem 0;
+}
+
+.pub-section-muted {
+  background-color: var(--pub-surface-muted);
+}
+
+.pub-eyebrow {
+  color: var(--pub-teal-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.pub-heading {
+  font-weight: 700;
+  color: var(--pub-ink);
+}
+
+/* ---------- Hero ---------- */
+.pub-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, #eff6ff 0%, #ffffff 55%, #f0f7ff 100%);
+  padding: 5rem 0 4rem;
+}
+
+.pub-hero::before {
+  content: '';
+  position: absolute;
+  inset: -20% -10% auto auto;
+  width: 32rem;
+  height: 32rem;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, rgba(37, 99, 235, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.pub-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--pub-emerald-dark);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.pub-hero h1 {
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--pub-ink);
+}
+
+.pub-hero .lead {
+  color: #3f4f68;
+}
+
+.pub-hero-illustration {
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 20px 40px rgba(37, 99, 235, 0.18));
+}
+
+/* ---------- Stat counters ---------- */
+.pub-stat-card {
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  border-radius: 1rem;
+  background: #fff;
+  padding: 1.75rem 1rem;
+  text-align: center;
+  height: 100%;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pub-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 1rem 2rem rgba(15, 37, 71, 0.08);
+}
+
+.pub-stat-value {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--pub-emerald);
+  line-height: 1;
+}
+
+.pub-stat-label {
+  color: #5b7089;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+/* ---------- Feature / department cards ---------- */
+.pub-card {
+  border: 1px solid rgba(15, 37, 71, 0.08);
+  border-radius: 1rem;
+  background: #fff;
+  padding: 1.75rem;
+  height: 100%;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.pub-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 1.25rem 2.5rem rgba(15, 37, 71, 0.1);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+.pub-icon-badge {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--pub-emerald), var(--pub-teal));
+  color: #fff;
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+}
+
+.pub-card p.small {
+  color: #5b7089;
+}
+
+/* ---------- News cards ---------- */
+.pub-news-image {
+  height: 170px;
+  border-radius: 1rem 1rem 0 0;
+  background: linear-gradient(135deg, var(--pub-emerald), var(--pub-teal-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 2.5rem;
+}
+
+.pub-news-card {
+  border: 1px solid rgba(15, 37, 71, 0.08);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: #fff;
+  height: 100%;
+  transition: box-shadow 0.2s ease;
+}
+
+.pub-news-card:hover {
+  box-shadow: 0 1.25rem 2.5rem rgba(15, 37, 71, 0.1);
+}
+
+/* ---------- Why choose us ---------- */
+.pub-why-item {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.pub-why-icon {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--pub-surface-muted);
+  color: var(--pub-emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+/* ---------- Testimonials ---------- */
+.pub-testimonial-card {
+  background: #fff;
+  border: 1px solid rgba(15, 37, 71, 0.08);
+  border-radius: 1.25rem;
+  padding: 2.5rem;
+  max-width: 42rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.pub-testimonial-avatar {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--pub-emerald), var(--pub-teal));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  margin: 0 auto 1rem;
+}
+
+.pub-testimonial-quote {
+  font-size: 1.05rem;
+  color: #33415c;
+  font-style: italic;
+}
+
+/* ---------- CTA ---------- */
+.pub-cta {
+  background: linear-gradient(135deg, var(--pub-emerald-dark), var(--pub-teal-dark));
+  border-radius: 1.5rem;
+  padding: 3.5rem 2rem;
+  color: #fff;
+  text-align: center;
+}
+
+.pub-cta .btn-light {
+  font-weight: 600;
+}
+
+/* ---------- Footer ---------- */
+.footer-public {
+  background: var(--pub-ink);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.footer-muted {
+  color: rgba(255, 255, 255, 0.6) !important;
+  text-decoration: none;
+}
+
+.footer-links li {
+  margin-bottom: 0.6rem;
+}
+
+.footer-links a {
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  font-size: 0.925rem;
+}
+
+.footer-links a:hover {
+  color: #fff;
+}
+
+.footer-links a.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.footer-social-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.footer-social-icon:hover {
+  background: var(--pub-emerald);
+  color: #fff;
+}
+
+.footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 991.98px) {
+  .pub-section {
+    padding: 3rem 0;
+  }
+}
+
+/* ---------- Dark mode ---------- */
+[data-bs-theme="dark"] {
+  --pub-ink: #e7f0ff;
+  --pub-surface-muted: #0f1d33;
+}
+
+[data-bs-theme="dark"] body {
+  background-color: #0a1220;
+}
+
+[data-bs-theme="dark"] .navbar-public {
+  background-color: rgba(10, 18, 32, 0.92);
+  border-bottom-color: rgba(59, 130, 246, 0.18);
+}
+
+[data-bs-theme="dark"] .pub-hero {
+  background: linear-gradient(160deg, #0f1d33 0%, #0a1220 55%, #0f1d33 100%);
+}
+
+[data-bs-theme="dark"] .pub-hero .lead {
+  color: #a9c2e0;
+}
+
+[data-bs-theme="dark"] .pub-stat-card,
+[data-bs-theme="dark"] .pub-card,
+[data-bs-theme="dark"] .pub-news-card,
+[data-bs-theme="dark"] .pub-testimonial-card {
+  background: #101f38;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-bs-theme="dark"] .pub-stat-label,
+[data-bs-theme="dark"] .pub-card p.small {
+  color: #9fb8e0;
+}
+
+[data-bs-theme="dark"] .pub-testimonial-quote {
+  color: #d7e6f7;
+}

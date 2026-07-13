@@ -1,0 +1,27 @@
+{% extends 'dashboard_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Generate All Fees (Bulk) · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'finance:invoice_list' %}">Invoices</a></li>
+  <li class="breadcrumb-item active">Generate All Fees</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="card-title mb-1">Generate Invoices for Every Fee Type</h5>
+        <p class="text-muted small mb-4">
+          Bills every fee type set up for this department, level, and session in one go —
+          Tuition, Registration, Practical, Board Exams, or whatever else has a fee structure —
+          instead of generating each one separately. Students who already have an invoice for a
+          given fee type are skipped automatically for that fee type only.
+        </p>
+        {% crispy form %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

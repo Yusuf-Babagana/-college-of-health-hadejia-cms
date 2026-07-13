@@ -1,0 +1,105 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Course Catalog · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Courses</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Course Catalog</h4>
+  <a href="{% url 'courses:course_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i> Add Course
+  </a>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-5">
+        <input type="text" name="q" class="form-control" placeholder="Search code or title" value="{{ search_query }}">
+      </div>
+      <div class="col-md-2">
+        <select name="department" class="form-select">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="level" class="form-select">
+          <option value="">All Levels</option>
+          {% for value, label in level_choices %}
+            <option value="{{ value }}" {% if value|stringformat:'s' == current_level %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-1 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search me-1"></i></button>
+      </div>
+      <div class="col-md-2 d-grid">
+        {% if show_archived %}
+          <a href="?" class="btn btn-outline-secondary">Show Active</a>
+        {% else %}
+          <a href="?archived=1" class="btn btn-outline-secondary">Show Archived</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Code</th>
+          <th>Title</th>
+          <th>Credit Units</th>
+          <th>Level</th>
+          <th>Department</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for course in courses %}
+        <tr>
+          <td><span class="badge badge-teal">{{ course.code }}</span></td>
+          <td>{{ course.title }}</td>
+          <td>{{ course.credit_units }}</td>
+          <td>{{ course.get_level_display }}</td>
+          <td>{{ course.department.code }}</td>
+          <td>
+            {% if course.is_deleted %}
+              <span class="badge bg-secondary">Archived</span>
+            {% else %}
+              <span class="badge bg-success">Active</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if not course.is_deleted %}
+              <a href="{% url 'courses:course_update' course.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+            {% endif %}
+            <form method="post" action="{% url 'courses:course_archive_toggle' course.pk %}" class="d-inline"
+                  onsubmit="return confirm('{% if course.is_deleted %}Restore{% else %}Archive{% endif %} {{ course.code }}?');">
+              {% csrf_token %}
+              {% if course.is_deleted %}
+                <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>
+              {% else %}
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-archive"></i> Archive</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No courses found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endblock %}

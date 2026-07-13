@@ -1,0 +1,93 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Practical Placement Sheet · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Placement Sheet</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h4 class="mb-1">Practical Placement Sheet</h4>
+    <p class="text-muted small mb-0">Everyone who has paid — in full or in part — for the Practical fee, ready for cadre and placement details.</p>
+  </div>
+  <a href="{% url 'practicals:placement_export' %}?{{ querystring }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-download me-1"></i> Download CSV
+  </a>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-sm-4">
+        <label class="form-label small text-muted mb-1">Fee Type</label>
+        <select name="fee_type" class="form-select form-select-sm" onchange="this.form.submit()">
+          {% for fee_type in fee_types %}
+            <option value="{{ fee_type.pk }}" {% if current_fee_type == fee_type.pk|stringformat:'s' %}selected{% endif %}>{{ fee_type.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-4">
+        <label class="form-label small text-muted mb-1">Session</label>
+        <select name="session" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">All Sessions</option>
+          {% for session in sessions %}
+            <option value="{{ session.pk }}" {% if current_session == session.pk|stringformat:'s' %}selected{% endif %}>{{ session.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Surname</th>
+          <th>First Name</th>
+          <th>Other Names</th>
+          <th>Reg. Number</th>
+          <th>Phone</th>
+          <th>Cadre</th>
+          <th>State</th>
+          <th>LGA</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for placement in placements %}
+        <tr>
+          <td>{{ forloop.counter0|add:page_obj.start_index }}</td>
+          <td class="fw-semibold">{{ placement.student.user.last_name }}</td>
+          <td>{{ placement.student.user.first_name }}</td>
+          <td>{{ placement.other_names|default:'—' }}</td>
+          <td>{{ placement.student.matric_number }}</td>
+          <td>{{ placement.student.user.phone_number|default:'—' }}</td>
+          <td>{{ placement.cadre|default:'—' }}</td>
+          <td>{{ placement.state_of_practical|default:'—' }}</td>
+          <td>{{ placement.lga_of_practical|default:'—' }}</td>
+          <td>
+            {% if placement.is_complete %}
+              <span class="badge bg-success">Complete</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">Incomplete</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{% url 'practicals:placement_update' placement.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-pencil-square"></i> Edit
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11" class="text-center text-muted py-4">No students have paid a Practical fee invoice yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endblock %}

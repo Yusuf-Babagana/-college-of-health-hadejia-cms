@@ -1,0 +1,79 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Registrar Dashboard · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Dashboard</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Welcome, {{ user.get_full_name|default:user.username }}</h4>
+<p class="text-muted mb-4">Academic administration overview.</p>
+
+{% if not level_states %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No level has a semester in progress. <a href="{% url 'academics:level_states' %}" class="alert-link">Set each level's current semester</a> to open course registration.
+  </div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  {% include 'partials/_stat_card.html' with icon='bi-calendar-range' label='Current Session' value=current_session.name|default:'None' %}
+  {% include 'partials/_stat_card.html' with icon='bi-layers' label='Levels Running' value=level_states|length %}
+  {% include 'partials/_stat_card.html' with icon='bi-people-fill' label='Total Students' value=total_students %}
+  {% include 'partials/_stat_card.html' with icon='bi-building' label='Departments' value=total_departments %}
+</div>
+
+{% if level_states %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-layers me-2 text-brand"></i>Level Semesters</span>
+    <a href="{% url 'academics:level_states' %}" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-pencil-square me-1"></i> Manage
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Level</th>
+          <th>Semester</th>
+          <th>Session</th>
+          <th>Registration Window</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for state in level_states %}
+        <tr>
+          <td class="fw-semibold">{{ state.get_level_display }}</td>
+          <td>{{ state.semester.get_name_display }}</td>
+          <td><span class="badge badge-teal">{{ state.semester.session.name }}</span></td>
+          <td class="small">
+            {% if state.semester.registration_start %}
+              {{ state.semester.registration_start|date:'M d, Y H:i' }} &rarr; {{ state.semester.registration_end|date:'M d, Y H:i' }}
+              {% if state.semester.is_registration_open %}
+                <span class="badge bg-success ms-1">Open Now</span>
+              {% else %}
+                <span class="badge bg-secondary ms-1">Closed</span>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">Not set</span>
+              <a href="{% url 'academics:registration_window' state.semester.pk %}" class="ms-1">Set</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-header bg-transparent"><i class="bi bi-link-45deg me-2 text-brand"></i>Quick Links</div>
+  <div class="list-group list-group-flush">
+    <a href="{% url 'academics:session_list' %}" class="list-group-item list-group-item-action">Academic Sessions</a>
+    <a href="{% url 'academics:semester_list' %}" class="list-group-item list-group-item-action">Semesters</a>
+    <a href="{% url 'academics:level_states' %}" class="list-group-item list-group-item-action">Level Semesters</a>
+    <a href="{% url 'students:student_list' %}" class="list-group-item list-group-item-action">Student Directory</a>
+    <a href="{% url 'students:student_create' %}" class="list-group-item list-group-item-action">Add Student</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 480" width="560" height="480" role="img" aria-label="Illustration of a digital college portal dashboard">
+  <defs>
+    <linearGradient id="hero-grad-1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="hero-grad-2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bfdbfe"/>
+      <stop offset="1" stop-color="#bae6fd"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background blobs -->
+  <circle cx="470" cy="80" r="70" fill="#bfdbfe" opacity="0.5"/>
+  <circle cx="60" cy="400" r="90" fill="#bae6fd" opacity="0.4"/>
+
+  <!-- browser window -->
+  <rect x="60" y="70" width="440" height="300" rx="20" fill="#ffffff" stroke="#dbeafe" stroke-width="2"/>
+  <rect x="60" y="70" width="440" height="46" rx="20" fill="url(#hero-grad-1)"/>
+  <rect x="60" y="96" width="440" height="20" fill="url(#hero-grad-1)"/>
+  <circle cx="86" cy="93" r="6" fill="#ffffff" opacity="0.85"/>
+  <circle cx="106" cy="93" r="6" fill="#ffffff" opacity="0.6"/>
+  <circle cx="126" cy="93" r="6" fill="#ffffff" opacity="0.4"/>
+
+  <!-- sidebar -->
+  <rect x="80" y="136" width="90" height="214" rx="10" fill="#eff6ff"/>
+  <rect x="96" y="156" width="58" height="10" rx="5" fill="#0ea5e9" opacity="0.6"/>
+  <rect x="96" y="182" width="58" height="8" rx="4" fill="#bfdbfe"/>
+  <rect x="96" y="204" width="58" height="8" rx="4" fill="#bfdbfe"/>
+  <rect x="96" y="226" width="58" height="8" rx="4" fill="#bfdbfe"/>
+  <rect x="96" y="248" width="58" height="8" rx="4" fill="#bfdbfe"/>
+
+  <!-- content cards -->
+  <rect x="190" y="136" width="150" height="70" rx="12" fill="#e0edff"/>
+  <rect x="206" y="152" width="60" height="8" rx="4" fill="#2563eb"/>
+  <rect x="206" y="168" width="90" height="20" rx="6" fill="#0ea5e9" opacity="0.35"/>
+
+  <rect x="354" y="136" width="126" height="70" rx="12" fill="#f0f7ff"/>
+  <circle cx="417" cy="171" r="24" fill="none" stroke="#0ea5e9" stroke-width="8" stroke-dasharray="90 150"/>
+  <circle cx="417" cy="171" r="24" fill="none" stroke="#bfdbfe" stroke-width="8" stroke-dasharray="60 150" stroke-dashoffset="-90"/>
+
+  <!-- bar chart card -->
+  <rect x="190" y="222" width="290" height="108" rx="12" fill="#ffffff" stroke="#dbeafe" stroke-width="2"/>
+  <rect x="212" y="270" width="20" height="40" rx="4" fill="#bfdbfe"/>
+  <rect x="244" y="250" width="20" height="60" rx="4" fill="#7dd3fc"/>
+  <rect x="276" y="290" width="20" height="20" rx="4" fill="#bfdbfe"/>
+  <rect x="308" y="240" width="20" height="70" rx="4" fill="url(#hero-grad-1)"/>
+  <rect x="340" y="260" width="20" height="50" rx="4" fill="#7dd3fc"/>
+  <rect x="372" y="280" width="20" height="30" rx="4" fill="#bfdbfe"/>
+  <rect x="404" y="255" width="20" height="55" rx="4" fill="#7dd3fc"/>
+  <rect x="436" y="235" width="20" height="75" rx="4" fill="url(#hero-grad-1)"/>
+
+  <!-- graduation cap accent -->
+  <g transform="translate(390,400)">
+    <circle r="52" fill="url(#hero-grad-2)" opacity="0.6"/>
+    <path d="M-30,-6 0,-20 30,-6 0,8 Z" fill="#1e3a8a"/>
+    <path d="M-16,0 -16,18 C-16,26 16,26 16,18 L16,0 0,8 Z" fill="#2563eb"/>
+    <line x1="30" y1="-6" x2="30" y2="14" stroke="#1e3a8a" stroke-width="3"/>
+    <circle cx="30" cy="17" r="3" fill="#1e3a8a"/>
+  </g>
+
+  <!-- pulse accent -->
+  <g transform="translate(120,90)">
+    <circle r="34" fill="#ffffff" opacity="0.9"/>
+    <path d="M-18,0 H-8 L-3,-14 5,14 10,0 H18" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

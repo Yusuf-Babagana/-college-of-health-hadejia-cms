@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<div class="d-flex">
+  {% include 'partials/_sidebar.html' %}
+
+  <div class="main-content d-flex flex-column min-vh-100">
+    {% include 'partials/_topbar.html' %}
+
+    <main class="container-fluid p-3 p-lg-4 flex-grow-1">
+      <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0 small">
+          <li class="breadcrumb-item"><a href="{% url 'dashboard:redirect' %}"><i class="bi bi-house-door"></i> Home</a></li>
+          {% block breadcrumb_items %}{% endblock %}
+        </ol>
+      </nav>
+
+      {% include 'partials/_messages.html' %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    {% include 'partials/_footer.html' %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends 'dashboard_base.html' %}
+{% load format_tags %}
+
+{% block title %}Fee Structures · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Fee Structures</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Fee Structures</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'finance:fee_type_list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-tags me-1"></i> Manage Fee Types
+    </a>
+    <a href="{% url 'finance:fee_structure_create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle me-1"></i> Add Fee Structure
+    </a>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-2">
+        <select name="fee_type" class="form-select">
+          <option value="">All Fee Types</option>
+          {% for ft in fee_types %}
+            <option value="{{ ft.pk }}" {% if ft.pk|stringformat:'s' == current_fee_type %}selected{% endif %}>{{ ft.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="session" class="form-select">
+          <option value="">All Sessions</option>
+          {% for session in sessions %}
+            <option value="{{ session.pk }}" {% if session.pk|stringformat:'s' == current_session %}selected{% endif %}>{{ session.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="department" class="form-select">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="level" class="form-select">
+          <option value="">All Levels</option>
+          {% for value, label in level_choices %}
+            <option value="{{ value }}" {% if value|stringformat:'s' == current_level %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search me-1"></i> Filter</button>
+      </div>
+      <div class="col-md-2 d-grid">
+        {% if show_archived %}
+          <a href="?" class="btn btn-outline-secondary">Show Active</a>
+        {% else %}
+          <a href="?archived=1" class="btn btn-outline-secondary">Show Archived</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Fee Type</th>
+          <th>Department</th>
+          <th>Level</th>
+          <th>Session</th>
+          <th>Amount</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fs in fee_structures %}
+        <tr>
+          <td><span class="badge bg-info-subtle text-info-emphasis">{{ fs.fee_type.name }}</span></td>
+          <td><span class="badge badge-teal">{{ fs.department.code }}</span></td>
+          <td>{{ fs.get_level_display }}</td>
+          <td>{{ fs.session.name }}</td>
+          <td>{{ fs.amount|naira }}</td>
+          <td class="small text-muted">{{ fs.description|default:'—' }}</td>
+          <td>
+            {% if fs.is_deleted %}
+              <span class="badge bg-secondary">Archived</span>
+            {% else %}
+              <span class="badge bg-success">Active</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if not fs.is_deleted %}
+              <a href="{% url 'finance:fee_structure_update' fs.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+            {% endif %}
+            <form method="post" action="{% url 'finance:fee_structure_archive_toggle' fs.pk %}" class="d-inline"
+                  onsubmit="return confirm('{% if fs.is_deleted %}Restore{% else %}Archive{% endif %} this fee structure?');">
+              {% csrf_token %}
+              {% if fs.is_deleted %}
+                <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>
+              {% else %}
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-archive"></i> Archive</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No fee structures found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endblock %}

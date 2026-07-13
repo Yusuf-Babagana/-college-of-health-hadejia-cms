@@ -1,0 +1,92 @@
+{% extends 'dashboard_base.html' %}
+{% load format_tags %}
+
+{% block title %}Student Dashboard · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Dashboard</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Welcome, {{ user.get_full_name|default:user.username }}</h4>
+<p class="text-muted mb-4">Here is an overview of your academic record.</p>
+
+{% if student_profile %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row text-center g-3">
+      <div class="col-6 col-md-3">
+        <div class="text-muted small">Matric Number</div>
+        <div class="fw-semibold">{{ student_profile.matric_number }}</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="text-muted small">Department</div>
+        <div class="fw-semibold">{{ student_profile.department.name }}</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="text-muted small">Level</div>
+        <div class="fw-semibold">{{ student_profile.get_level_display }}</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="text-muted small">Current Semester</div>
+        <div class="fw-semibold">
+          {% if active_semester %}
+            {{ active_semester }}
+            {% if active_semester.is_registration_open %}
+              <span class="badge bg-success ms-1">Reg. Open</span>
+            {% else %}
+              <span class="badge bg-secondary ms-1">Reg. Closed</span>
+            {% endif %}
+          {% else %}
+            <span class="text-muted">None in progress for your level</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if not student_profile %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No student profile is linked to your account. Contact the Registrar.
+  </div>
+{% elif current_session and not is_financially_cleared %}
+  <div class="alert alert-danger">
+    <i class="bi bi-exclamation-octagon-fill me-1"></i>
+    You have an outstanding balance for {{ current_session.name }}.
+    <a href="{% url 'finance:my_invoices' %}" class="alert-link">Clear your fees</a> to unlock course registration.
+  </div>
+{% elif current_session %}
+  <div class="alert alert-success">
+    <i class="bi bi-patch-check-fill me-1"></i>
+    You are financially cleared for {{ current_session.name }}.
+  </div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  {% include 'partials/_stat_card.html' with icon='bi-calendar3' label='Current Session' value=current_session.name|default:'None' %}
+  {% include 'partials/_stat_card.html' with icon='bi-journal-check' label='Registered Courses' value=registered_course_count|default:0 %}
+  {% include 'partials/_stat_card.html' with icon='bi-cash-coin' label='Outstanding Fees' value=outstanding_fees|default:0|naira %}
+  {% include 'partials/_stat_card.html' with icon='bi-graph-up' label='Current CGPA' value=cgpa|default:'—' %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-megaphone-fill me-2 text-brand"></i>Announcements</div>
+      <div class="card-body text-muted small">No announcements yet.</div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent"><i class="bi bi-link-45deg me-2 text-brand"></i>Quick Links</div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'courses:available_courses' %}" class="list-group-item list-group-item-action">Register Courses</a>
+        <a href="{% url 'courses:my_registrations' %}" class="list-group-item list-group-item-action">My Schedule</a>
+        <a href="{% url 'finance:my_invoices' %}" class="list-group-item list-group-item-action">View Invoice / Pay Online</a>
+        <a href="{% url 'results:my_results' %}" class="list-group-item list-group-item-action">Semester Results</a>
+        <a href="{% url 'results:my_transcript' %}" class="list-group-item list-group-item-action" target="_blank">Download Transcript</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

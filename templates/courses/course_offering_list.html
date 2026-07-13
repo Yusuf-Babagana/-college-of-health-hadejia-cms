@@ -1,0 +1,128 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Assign Courses · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Assign Courses</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h4 class="mb-1">Assign Courses</h4>
+    {% if department %}
+      <p class="text-muted small mb-0">{{ department.name }} ({{ department.code }})</p>
+    {% elif is_overseer %}
+      <p class="text-muted small mb-0">All departments</p>
+    {% endif %}
+  </div>
+  {% if department or is_overseer %}
+  <a href="{% url 'courses:course_offering_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i> Assign Course
+  </a>
+  {% endif %}
+</div>
+
+{% if not department and not is_overseer %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Your account has no linked department. Contact the ICT Administrator.
+  </div>
+{% else %}
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      {% if is_overseer %}
+      <div class="col-md-4">
+        <select name="department" class="form-select">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="{% if is_overseer %}col-md-4{% else %}col-md-8{% endif %}">
+        <select name="semester" class="form-select">
+          <option value="">All Semesters</option>
+          {% for sem in semesters %}
+            <option value="{{ sem.pk }}" {% if sem.pk|stringformat:'s' == current_semester %}selected{% endif %}>
+              {{ sem }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search me-1"></i> Filter</button>
+      </div>
+      <div class="col-md-2 d-grid">
+        {% if show_archived %}
+          <a href="?" class="btn btn-outline-secondary">Show Active</a>
+        {% else %}
+          <a href="?archived=1" class="btn btn-outline-secondary">Show Archived</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Course</th>
+          {% if is_overseer %}<th>Department</th>{% endif %}
+          <th>Semester</th>
+          <th>Lecturer</th>
+          <th>Capacity</th>
+          <th>Registered</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for offering in offerings %}
+        <tr>
+          <td><span class="badge badge-teal">{{ offering.course.code }}</span> {{ offering.course.title }}</td>
+          {% if is_overseer %}<td>{{ offering.course.department.code }}</td>{% endif %}
+          <td>{{ offering.semester }}</td>
+          <td>{% if offering.lecturer %}{{ offering.lecturer.user.get_full_name }}{% else %}<span class="text-muted">Unassigned</span>{% endif %}</td>
+          <td>{{ offering.capacity }}</td>
+          <td>
+            {{ offering.registered_count }}
+            {% if offering.is_full %}<span class="badge bg-danger">Full</span>{% endif %}
+          </td>
+          <td>
+            {% if offering.is_deleted %}
+              <span class="badge bg-secondary">Archived</span>
+            {% else %}
+              <span class="badge bg-success">Active</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if not offering.is_deleted %}
+              <a href="{% url 'courses:course_offering_update' offering.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+            {% endif %}
+            <form method="post" action="{% url 'courses:course_offering_archive_toggle' offering.pk %}" class="d-inline"
+                  onsubmit="return confirm('{% if offering.is_deleted %}Restore{% else %}Archive{% endif %} this offering?');">
+              {% csrf_token %}
+              {% if offering.is_deleted %}
+                <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>
+              {% else %}
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-archive"></i> Archive</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if is_overseer %}8{% else %}7{% endif %}" class="text-center text-muted py-4">No course offerings yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endif %}
+{% endblock %}

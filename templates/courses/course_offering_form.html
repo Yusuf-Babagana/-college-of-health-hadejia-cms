@@ -1,0 +1,31 @@
+{% extends 'dashboard_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ form_title }} · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'courses:course_offering_list' %}">Assign Courses</a></li>
+  <li class="breadcrumb-item active">{{ form_title }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="card-title mb-1">{{ form_title }}</h5>
+        {% if locked_semester %}
+          <p class="text-muted small mb-4"><i class="bi bi-calendar3 me-1"></i> Semester: <strong>{{ locked_semester }}</strong></p>
+        {% elif level_states %}
+          <p class="text-muted small mb-4">
+            <i class="bi bi-calendar3 me-1"></i> Current semester per level:
+            {% for state in level_states %}
+              <span class="badge bg-light text-dark border">{{ state.get_level_display }}: {{ state.semester }}</span>
+            {% endfor %}
+          </p>
+        {% endif %}
+        {% crispy form %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

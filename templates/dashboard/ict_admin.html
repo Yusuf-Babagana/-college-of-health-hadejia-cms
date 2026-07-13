@@ -1,0 +1,32 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}ICT Administration · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Dashboard</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Welcome, {{ user.get_full_name|default:user.username }}</h4>
+<p class="text-muted mb-4">System administration overview.</p>
+
+<div class="row g-3 mb-4">
+  {% include 'partials/_stat_card.html' with icon='bi-people-fill' label='Total Users' value=total_users %}
+  {% include 'partials/_stat_card.html' with icon='bi-building' label='Departments' value=total_departments %}
+  {% include 'partials/_stat_card.html' with icon='bi-person-video3' label='Lecturers' value=total_lecturers %}
+  {% include 'partials/_stat_card.html' with icon='bi-mortarboard-fill' label='Students' value=total_students %}
+  {% include 'partials/_stat_card.html' with icon='bi-journal-bookmark-fill' label='Courses' value=total_courses %}
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-transparent"><i class="bi bi-link-45deg me-2 text-brand"></i>Quick Links</div>
+  <div class="list-group list-group-flush">
+    <a href="{% url 'accounts:user_list' %}" class="list-group-item list-group-item-action">Manage Users</a>
+    <a href="{% url 'departments:department_list' %}" class="list-group-item list-group-item-action">Manage Departments</a>
+    <a href="{% url 'lecturers:lecturer_list' %}" class="list-group-item list-group-item-action">Manage Lecturers</a>
+    <a href="{% url 'students:student_list' %}" class="list-group-item list-group-item-action">Manage Students</a>
+    <a href="{% url 'courses:course_list' %}" class="list-group-item list-group-item-action">Manage Course Catalog</a>
+    <a href="{% url 'admin:index' %}" class="list-group-item list-group-item-action">Roles, Groups & Advanced Admin</a>
+    <span class="list-group-item disabled">Academic Calendar <span class="badge bg-secondary float-end">Soon</span></span>
+    <span class="list-group-item disabled">Audit Logs <span class="badge bg-secondary float-end">Soon</span></span>
+    <span class="list-group-item disabled">Database Backup <span class="badge bg-secondary float-end">Soon</span></span>
+  </div>
+</div>
+{% endblock %}

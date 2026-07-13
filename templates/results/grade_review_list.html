@@ -1,0 +1,92 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Review Grades · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Review Grades</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Review Grades</h4>
+{% if department %}
+  <p class="text-muted small mb-4">{{ department.name }} ({{ department.code }})</p>
+{% elif is_overseer %}
+  <p class="text-muted small mb-4">All departments</p>
+{% endif %}
+
+{% if not department and not is_overseer %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Your account has no linked department. Contact the ICT Administrator.
+  </div>
+{% else %}
+
+{% if is_overseer %}
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <select name="department" class="form-select">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search me-1"></i> Filter</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Matric Number</th>
+          <th>Name</th>
+          <th>Course</th>
+          {% if is_overseer %}<th>Department</th>{% endif %}
+          <th>CA</th>
+          <th>Exam</th>
+          <th>Total</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for grade in grades %}
+        <tr>
+          <td><span class="badge badge-teal">{{ grade.student.matric_number }}</span></td>
+          <td>{{ grade.student.user.get_full_name }}</td>
+          <td>{{ grade.course_offering.course.code }}</td>
+          {% if is_overseer %}<td>{{ grade.course_offering.course.department.code }}</td>{% endif %}
+          <td>{{ grade.ca_score }}</td>
+          <td>{{ grade.exam_score }}</td>
+          <td class="fw-semibold">{{ grade.total_score }}</td>
+          <td class="text-end">
+            <form method="post" action="{% url 'results:approve_grade' grade.pk %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-check-circle"></i> Approve</button>
+            </form>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#reject-{{ grade.pk }}">
+              <i class="bi bi-x-circle"></i> Reject
+            </button>
+            <div class="collapse mt-2" id="reject-{{ grade.pk }}">
+              <form method="post" action="{% url 'results:reject_grade' grade.pk %}" class="d-flex gap-2">
+                {% csrf_token %}
+                <input type="text" name="comment" class="form-control form-control-sm" placeholder="Reason (optional)">
+                <button type="submit" class="btn btn-sm btn-danger text-nowrap">Confirm Reject</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if is_overseer %}8{% else %}7{% endif %}" class="text-center text-muted py-4">No grades awaiting review.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include 'partials/_pagination.html' %}
+{% endif %}
+{% endblock %}

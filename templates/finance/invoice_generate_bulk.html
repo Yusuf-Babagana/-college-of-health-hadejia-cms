@@ -1,0 +1,25 @@
+{% extends 'dashboard_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Generate Invoices (Bulk) · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'finance:invoice_list' %}">Invoices</a></li>
+  <li class="breadcrumb-item active">Generate Bulk</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="card-title mb-1">Generate Invoices in Bulk</h5>
+        <p class="text-muted small mb-4">
+          Creates one invoice per active student in the selected fee structure's department and level.
+          Students who already have an invoice for it are skipped automatically.
+        </p>
+        {% crispy form %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

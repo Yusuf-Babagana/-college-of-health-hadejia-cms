@@ -1,0 +1,49 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Grading Scale · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Grading Scale</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Grading Scale</h4>
+  <a href="{% url 'results:grade_band_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i> Add Grade Band
+  </a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Letter</th>
+          <th>Score Range</th>
+          <th>Grade Point</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for band in grade_bands %}
+        <tr>
+          <td><span class="badge badge-teal">{{ band.letter }}</span></td>
+          <td>{{ band.min_score }} - {{ band.max_score }}</td>
+          <td>{{ band.grade_point }}</td>
+          <td class="text-end">
+            <a href="{% url 'results:grade_band_update' band.pk %}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-pencil-square"></i> Edit
+            </a>
+            <form method="post" action="{% url 'results:grade_band_delete' band.pk %}" class="d-inline"
+                  onsubmit="return confirm('Remove grade band {{ band.letter }}?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-muted py-4">No grade bands configured yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

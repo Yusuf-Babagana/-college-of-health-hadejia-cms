@@ -1,0 +1,85 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Academic Sessions · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Academic Sessions</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Academic Sessions</h4>
+  <a href="{% url 'academics:session_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i> Add Session
+  </a>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-8">
+        <input type="text" name="q" class="form-control" placeholder="Search session, e.g. 2025/2026" value="{{ search_query }}">
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search me-1"></i> Filter</button>
+      </div>
+      <div class="col-md-2 d-grid">
+        {% if show_archived %}
+          <a href="?q={{ search_query }}" class="btn btn-outline-secondary">Show Active</a>
+        {% else %}
+          <a href="?q={{ search_query }}&archived=1" class="btn btn-outline-secondary">Show Archived</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Session</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for session in sessions %}
+        <tr>
+          <td><span class="badge badge-teal">{{ session.name }}</span></td>
+          <td>{{ session.start_date|default:'—' }}</td>
+          <td>{{ session.end_date|default:'—' }}</td>
+          <td>
+            {% if session.is_deleted %}
+              <span class="badge bg-secondary">Archived</span>
+            {% else %}
+              <span class="badge bg-success">Active</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if not session.is_deleted %}
+              <a href="{% url 'academics:session_update' session.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil-square"></i> Edit
+              </a>
+            {% endif %}
+            <form method="post" action="{% url 'academics:session_archive_toggle' session.pk %}" class="d-inline"
+                  onsubmit="return confirm('{% if session.is_deleted %}Restore{% else %}Archive{% endif %} {{ session.name }}?');">
+              {% csrf_token %}
+              {% if session.is_deleted %}
+                <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>
+              {% else %}
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-archive"></i> Archive</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No academic sessions found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include 'partials/_pagination.html' %}
+{% endblock %}
