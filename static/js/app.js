@@ -25,8 +25,32 @@
 
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebar = document.getElementById('appSidebar');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+    function closeSidebar() {
+      sidebar.classList.remove('show');
+      sidebarBackdrop?.classList.remove('show');
+    }
+
     if (sidebarToggle && sidebar) {
-      sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('show'));
+      sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('show');
+        sidebarBackdrop?.classList.toggle('show');
+      });
+    }
+
+    if (sidebarBackdrop) {
+      sidebarBackdrop.addEventListener('click', closeSidebar);
+    }
+
+    if (sidebar) {
+      sidebar.querySelectorAll('.nav-link').forEach((link) => {
+        link.addEventListener('click', () => {
+          if (window.matchMedia('(max-width: 991.98px)').matches) {
+            closeSidebar();
+          }
+        });
+      });
     }
   });
 })();

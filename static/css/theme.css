@@ -87,10 +87,37 @@ body {
 .card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .stat-card {
   border-left: 4px solid var(--brand-emerald);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1.25rem rgba(15, 23, 42, 0.1);
+}
+
+.list-group-item-action:hover {
+  background-color: var(--bg-surface-muted);
+}
+
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.nav-link:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--brand-teal);
+  outline-offset: 2px;
+}
+
+.sidebar-backdrop {
+  display: none;
 }
 
 .page-link {
@@ -183,5 +210,13 @@ a {
   }
   .sidebar.show {
     transform: translateX(0);
+  }
+
+  .sidebar-backdrop.show {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1039;
   }
 }
