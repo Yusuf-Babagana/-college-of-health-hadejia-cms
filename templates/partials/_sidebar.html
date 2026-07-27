@@ -22,7 +22,7 @@
       <i class="bi bi-key-fill me-2"></i> Change Password
     </a>
 
-    {% if user.is_ict_admin or user.is_super_admin or user.is_superuser %}
+    {% if user.is_super_admin or user.is_superuser %}
     <div class="nav-section-title">Administration</div>
     <a class="nav-link" href="{% url 'admin:index' %}">
       <i class="bi bi-gear-fill me-2"></i> System Admin
