@@ -1,0 +1,14 @@
+{% extends 'admissions/dashboard_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Section A: Personal Details · {{ COLLEGE_SHORT_NAME }} Admissions{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body p-4">
+    <h5 class="card-title mb-1">Section A: Personal & Guardian Details</h5>
+    <p class="text-muted small mb-4">Tell us a bit about yourself and your guardian.</p>
+    {% crispy form %}
+  </div>
+</div>
+{% endblock %}

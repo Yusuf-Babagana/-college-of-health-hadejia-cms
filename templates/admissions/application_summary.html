@@ -1,0 +1,75 @@
+{% extends 'admissions/dashboard_base.html' %}
+
+{% block title %}Review & Submit · {{ COLLEGE_SHORT_NAME }} Admissions{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="card-title mb-0">Application Summary</h5>
+      <span class="badge bg-brand">{{ application.get_status_display }}</span>
+    </div>
+
+    <h6 class="text-brand">Personal Details</h6>
+    <table class="table table-sm">
+      <tr><th>Date of Birth</th><td>{{ application.date_of_birth|default:"-" }}</td></tr>
+      <tr><th>Gender</th><td>{{ application.get_gender_display|default:"-" }}</td></tr>
+      <tr><th>State / LGA of Origin</th><td>{{ application.state_of_origin }} / {{ application.lga_of_origin }}</td></tr>
+      <tr><th>Home Address</th><td>{{ application.home_address|default:"-" }}</td></tr>
+      <tr><th>Guardian</th><td>{{ application.guardian_name }} ({{ application.guardian_phone }})</td></tr>
+    </table>
+
+    <h6 class="text-brand mt-4">Educational History</h6>
+    <table class="table table-sm">
+      <thead><tr><th>School</th><th>Qualification</th><th>Years</th></tr></thead>
+      <tbody>
+        {% for school in application.schools_attended.all %}
+          <tr><td>{{ school.school_name }}</td><td>{{ school.qualification }}</td><td>{{ school.start_year }}-{{ school.end_year }}</td></tr>
+        {% empty %}
+          <tr><td colspan="3" class="text-muted">No schools recorded.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h6 class="text-brand mt-4">SSCE Results</h6>
+    {% for sitting in application.ssce_sittings.all %}
+      <p class="mb-1"><strong>Sitting {{ sitting.sitting_number }}:</strong> {{ sitting.get_exam_type_display }}, {{ sitting.exam_year }}, {{ sitting.exam_number }}</p>
+      <p class="text-muted small">
+        {% for subject in sitting.subject_results.all %}{{ subject.subject_name }}: {{ subject.grade }}{% if not forloop.last %}, {% endif %}{% endfor %}
+      </p>
+    {% endfor %}
+
+    <h6 class="text-brand mt-4">Course Selection</h6>
+    <p>1st Choice: {{ application.programme_first_choice|default:"-" }}<br>
+       2nd Choice: {{ application.programme_second_choice|default:"-" }}</p>
+
+    <h6 class="text-brand mt-4">Documents</h6>
+    <ul>
+      {% for doc in application.documents.all %}
+        <li>{{ doc.get_document_type_display }}: <a href="{{ doc.file.url }}" target="_blank">View</a></li>
+      {% empty %}
+        <li class="text-muted">No documents uploaded.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-4 d-flex justify-content-between align-items-center">
+    {% if application.status == 'draft' %}
+      <p class="text-muted mb-0 small">Review everything above carefully - you cannot edit after submitting.</p>
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-send-check me-1"></i> Submit Application
+        </button>
+      </form>
+    {% else %}
+      <p class="text-muted mb-0 small">Submitted on {{ application.submitted_at }}.</p>
+      <a href="{% url 'admissions:application_pdf' %}" class="btn btn-outline-primary">
+        <i class="bi bi-download me-1"></i> Download PDF
+      </a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

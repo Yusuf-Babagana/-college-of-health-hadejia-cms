@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #1f2937; }
+    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #d97706; padding-bottom: 12px; }
+    .header h1 { font-size: 14pt; color: #b45309; margin: 0 0 4px; }
+    .header h2 { font-size: 12pt; margin: 0; color: #333; }
+    .meta { width: 100%; margin-bottom: 16px; }
+    .meta td { padding: 3px 8px 3px 0; font-size: 10pt; vertical-align: top; }
+    .meta .label { color: #555; width: 160px; }
+    h3 { font-size: 11pt; color: #b45309; border-bottom: 1px solid #f0dfc2; padding-bottom: 4px; }
+    table.data { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    table.data th, table.data td { border: 1px solid #ccc; padding: 5px 8px; font-size: 9.5pt; text-align: left; }
+    table.data th { background-color: #fef3e2; color: #b45309; }
+    .footer { margin-top: 30px; font-size: 9pt; color: #666; }
+    .status { display: inline-block; padding: 2px 10px; border: 1px solid #d97706; color: #b45309; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>{{ application.applicant.user.get_full_name }}'s Admission Application</h1>
+    <h2>{{ application.applicant.user.email }}</h2>
+  </div>
+
+  <table class="meta">
+    <tr><td class="label">Status:</td><td><span class="status">{{ application.get_status_display }}</span></td></tr>
+    <tr><td class="label">Submitted:</td><td>{{ application.submitted_at|default:"-" }}</td></tr>
+    <tr><td class="label">1st Choice Programme:</td><td>{{ application.programme_first_choice|default:"-" }}</td></tr>
+    <tr><td class="label">2nd Choice Programme:</td><td>{{ application.programme_second_choice|default:"-" }}</td></tr>
+  </table>
+
+  <h3>Personal Details</h3>
+  <table class="data">
+    <tr><th>Date of Birth</th><td>{{ application.date_of_birth|default:"-" }}</td></tr>
+    <tr><th>Gender</th><td>{{ application.get_gender_display|default:"-" }}</td></tr>
+    <tr><th>State / LGA of Origin</th><td>{{ application.state_of_origin }} / {{ application.lga_of_origin }}</td></tr>
+    <tr><th>Home Address</th><td>{{ application.home_address|default:"-" }}</td></tr>
+    <tr><th>Guardian</th><td>{{ application.guardian_name }} ({{ application.guardian_phone }})</td></tr>
+  </table>
+
+  <h3>Educational History</h3>
+  <table class="data">
+    <thead><tr><th>School</th><th>Qualification</th><th>Years</th></tr></thead>
+    <tbody>
+      {% for school in application.schools_attended.all %}
+      <tr><td>{{ school.school_name }}</td><td>{{ school.qualification }}</td><td>{{ school.start_year }}-{{ school.end_year }}</td></tr>
+      {% empty %}
+      <tr><td colspan="3">No schools recorded.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>SSCE Results</h3>
+  <table class="data">
+    <thead><tr><th>Sitting</th><th>Exam</th><th>Year</th><th>Exam Number</th><th>Subjects & Grades</th></tr></thead>
+    <tbody>
+      {% for sitting in application.ssce_sittings.all %}
+      <tr>
+        <td>{{ sitting.sitting_number }}</td>
+        <td>{{ sitting.get_exam_type_display }}</td>
+        <td>{{ sitting.exam_year }}</td>
+        <td>{{ sitting.exam_number }}</td>
+        <td>{% for subject in sitting.subject_results.all %}{{ subject.subject_name }}: {{ subject.grade }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No SSCE results recorded.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Generated on {% now "F j, Y H:i" %} - This is a system-generated document reflecting the applicant's submission.
+  </div>
+</body>
+</html>

@@ -1,0 +1,165 @@
+/*
+ * Admissions portal theme. Deliberately distinct from static/css/theme.css
+ * (the main CMS's blue palette) - amber/gold accent, so the portal reads as
+ * its own product even though it's hosted under the same project. Scoped
+ * under .admissions-portal (set on <body> by templates/admissions/base.html
+ * and dashboard_base.html) so it can never bleed into the main site.
+ */
+.admissions-portal {
+  --adm-amber: #d97706;
+  --adm-amber-dark: #b45309;
+  --adm-gold: #f59e0b;
+  --adm-ink: #1c1508;
+  --sidebar-width: 260px;
+
+  --bg-body: #fffbf2;
+  --bg-surface: #ffffff;
+  --bg-surface-muted: #fef3e2;
+  --text-primary: #292118;
+  --text-muted: #78716c;
+  --border-color: #f0dfc2;
+  --sidebar-bg: #78350f;
+  --sidebar-text: #fde8c9;
+  --sidebar-active: #d97706;
+}
+
+[data-bs-theme="dark"] .admissions-portal {
+  --bg-body: #1a1409;
+  --bg-surface: #241b0e;
+  --bg-surface-muted: #2e2211;
+  --text-primary: #f5e9d3;
+  --text-muted: #b8a488;
+  --border-color: #4a3820;
+  --sidebar-bg: #140d05;
+  --sidebar-text: #fde8c9;
+  --sidebar-active: #f59e0b;
+}
+
+.admissions-portal { background-color: var(--bg-body); color: var(--text-primary); }
+
+.admissions-portal .navbar-app,
+.admissions-portal .navbar-admissions {
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admissions-portal .sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  min-height: 100vh;
+  position: sticky;
+  top: 0;
+}
+
+.admissions-portal .sidebar .brand {
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admissions-portal .sidebar .nav-link {
+  color: var(--sidebar-text);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  margin: 0.15rem 0.6rem;
+  font-size: 0.925rem;
+}
+
+.admissions-portal .sidebar .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.admissions-portal .sidebar .nav-link.active {
+  background-color: var(--sidebar-active);
+  color: #fff;
+  font-weight: 500;
+}
+
+.admissions-portal .sidebar .nav-section-title {
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 1rem 1rem 0.25rem;
+}
+
+.admissions-portal .main-content { flex: 1; min-width: 0; }
+
+.admissions-portal .card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(41, 33, 24, 0.08);
+}
+
+.admissions-portal .stat-card { border-left: 4px solid var(--adm-amber); }
+
+.admissions-portal .btn-primary {
+  background-color: var(--adm-amber);
+  border-color: var(--adm-amber);
+}
+
+.admissions-portal .btn-primary:hover {
+  background-color: var(--adm-amber-dark);
+  border-color: var(--adm-amber-dark);
+}
+
+.admissions-portal .btn-outline-primary {
+  color: var(--adm-amber);
+  border-color: var(--adm-amber);
+}
+
+.admissions-portal .btn-outline-primary:hover {
+  background-color: var(--adm-amber);
+  border-color: var(--adm-amber);
+}
+
+.admissions-portal .text-brand { color: var(--adm-amber) !important; }
+.admissions-portal .bg-brand { background-color: var(--adm-amber) !important; }
+.admissions-portal a { color: var(--adm-amber-dark); }
+
+.admissions-portal .auth-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--adm-amber-dark), var(--adm-gold));
+}
+
+.admissions-portal .auth-card {
+  max-width: 460px;
+  width: 100%;
+  background-color: var(--bg-surface);
+  border-radius: 0.75rem;
+}
+
+.admissions-portal .progress-bar { background-color: var(--adm-amber); }
+
+.admissions-portal .theme-toggle-btn {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.admissions-portal .sidebar-backdrop { display: none; }
+
+@media (max-width: 991.98px) {
+  .admissions-portal .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1040;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-in-out;
+  }
+  .admissions-portal .sidebar.show { transform: translateX(0); }
+
+  .admissions-portal .sidebar-backdrop.show {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1039;
+  }
+}

@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+  <link href="{% static 'admissions/css/theme.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block body %}
+<div class="admissions-portal d-flex">
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  {% include 'admissions/partials/_sidebar.html' %}
+
+  <div class="main-content d-flex flex-column min-vh-100">
+    {% include 'admissions/partials/_topbar.html' %}
+
+    <main class="container-fluid p-3 p-lg-4 flex-grow-1">
+      {% include 'partials/_messages.html' %}
+      {% block content %}{% endblock %}
+    </main>
+
+    {% include 'admissions/partials/_footer.html' %}
+  </div>
+</div>
+{% endblock %}

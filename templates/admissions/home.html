@@ -1,0 +1,48 @@
+{% extends 'admissions/base.html' %}
+
+{% block title %}Admissions · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+
+{% block content %}
+<section class="py-5" style="background: linear-gradient(160deg, #fff7ea 0%, #ffffff 55%, #fef3e2 100%);">
+  <div class="container py-4 text-center">
+    {% now "Y" as current_year %}
+    <span class="badge rounded-pill mb-3" style="background: var(--bg-surface-muted); color: var(--adm-amber-dark);">
+      Admissions {{ current_year }}/{{ current_year|add:1 }}
+    </span>
+    <h1 class="fw-bold mb-3">Start Your Journey at {{ COLLEGE_NAME }}</h1>
+    <p class="lead text-muted mb-4">
+      Apply online in five simple steps &mdash; pay the application fee (or use a
+      referral code), fill in your details, upload your documents, and submit.
+    </p>
+    <div class="d-flex justify-content-center gap-2 flex-wrap">
+      <a href="{% url 'admissions:signup' %}" class="btn btn-primary btn-lg">
+        <i class="bi bi-pencil-square me-1"></i> Start Application
+      </a>
+      <a href="{% url 'admissions:login' %}" class="btn btn-outline-primary btn-lg">
+        Resume My Application
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="py-5" id="programmes">
+  <div class="container">
+    <h2 class="text-center fw-bold mb-4">Available Programmes</h2>
+    <div class="row g-3">
+      {% for programme in programmes %}
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100">
+            <div class="card-body">
+              <i class="bi bi-mortarboard-fill text-brand fs-3 mb-2"></i>
+              <h5 class="card-title">{{ programme.name }}</h5>
+              <p class="text-muted small mb-0">Code: {{ programme.short_code }}</p>
+            </div>
+          </div>
+        </div>
+      {% empty %}
+        <p class="text-muted text-center">Programmes will be listed here shortly.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

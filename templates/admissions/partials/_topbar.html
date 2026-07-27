@@ -1,0 +1,19 @@
+<nav class="navbar navbar-app sticky-top px-3 py-2">
+  <div class="d-flex align-items-center gap-3 w-100">
+    <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarToggle" type="button" aria-label="Toggle navigation">
+      <i class="bi bi-list"></i>
+    </button>
+
+    <span class="fw-semibold d-none d-sm-inline">Admissions Portal</span>
+
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <button class="btn btn-sm theme-toggle-btn" id="themeToggle" type="button" aria-label="Toggle dark mode">
+        <i class="bi bi-moon-stars" data-theme-icon></i>
+      </button>
+      <span class="btn btn-sm theme-toggle-btn d-flex align-items-center gap-2">
+        <i class="bi bi-person-fill"></i>
+        <span class="d-none d-sm-inline">{{ request.user.get_full_name|default:request.user.username }}</span>
+      </span>
+    </div>
+  </div>
+</nav>

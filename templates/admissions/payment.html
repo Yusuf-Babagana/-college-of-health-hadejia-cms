@@ -1,0 +1,28 @@
+{% extends 'admissions/dashboard_base.html' %}
+
+{% block title %}Pay Application Fee · {{ COLLEGE_SHORT_NAME }} Admissions{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body p-4 text-center">
+        <i class="bi bi-credit-card-2-front text-brand" style="font-size: 2.5rem;"></i>
+        <h5 class="card-title mt-3">Application Fee</h5>
+        <p class="display-6 fw-bold text-brand">&#8358;{{ fee }}</p>
+        <p class="text-muted small">You'll be redirected to Paystack's secure checkout to complete payment.</p>
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-lock-fill me-1"></i> Pay Now
+          </button>
+        </form>
+        <hr>
+        <p class="small mb-0">
+          Have a referral code instead? <a href="{% url 'admissions:referral_check' %}">Enter it here</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

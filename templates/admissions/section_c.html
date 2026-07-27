@@ -1,0 +1,56 @@
+{% extends 'admissions/dashboard_base.html' %}
+
+{% block title %}Section C: SSCE Results · {{ COLLEGE_SHORT_NAME }} Admissions{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body p-4">
+    <h5 class="card-title mb-1">Section C: SSCE Results</h5>
+    <p class="text-muted small mb-4">Enter up to two exam sittings and the subjects/grades for each.</p>
+
+    <form method="post">
+      {% csrf_token %}
+
+      {% for sitting_form, subjects_formset in sittings %}
+        <div class="border rounded p-3 mb-4">
+          <h6 class="text-muted">Sitting {{ forloop.counter }}</h6>
+          {% for hidden in sitting_form.hidden_fields %}{{ hidden }}{% endfor %}
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label">{{ sitting_form.exam_type.label }}</label>
+              {{ sitting_form.exam_type }}
+              {{ sitting_form.exam_type.errors }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">{{ sitting_form.exam_year.label }}</label>
+              {{ sitting_form.exam_year }}
+              {{ sitting_form.exam_year.errors }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">{{ sitting_form.exam_number.label }}</label>
+              {{ sitting_form.exam_number }}
+              {{ sitting_form.exam_number.errors }}
+            </div>
+          </div>
+
+          <p class="small fw-semibold mb-2">Subjects & Grades</p>
+          {{ subjects_formset.management_form }}
+          <div class="row g-2">
+            {% for form in subjects_formset %}
+              <div class="col-md-6">
+                <div class="input-group input-group-sm mb-1">
+                  {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                  {{ form.subject_name }}
+                  {{ form.grade }}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+
+      <button type="submit" class="btn btn-primary w-100">Save & Continue</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

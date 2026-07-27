@@ -1,0 +1,36 @@
+{% extends 'admissions/dashboard_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Section E: Declaration & Documents · {{ COLLEGE_SHORT_NAME }} Admissions{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body p-4">
+    <h5 class="card-title mb-1">Section E: Declaration & Documents</h5>
+    <p class="text-muted small mb-4">Upload your passport photo and supporting documents, then accept the declaration.</p>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form|crispy }}
+
+      <hr>
+      <p class="fw-semibold mb-2">Supporting Documents</p>
+      {{ documents_formset.management_form }}
+      {% for doc_form in documents_formset %}
+        <div class="row g-2 align-items-center mb-2">
+          {% for hidden in doc_form.hidden_fields %}{{ hidden }}{% endfor %}
+          <div class="col-md-4">{{ doc_form.document_type }}</div>
+          <div class="col-md-6">{{ doc_form.file }}</div>
+          {% if doc_form.instance.pk %}
+            <div class="col-md-2 form-check">
+              {{ doc_form.DELETE }} <label class="form-check-label small">Remove</label>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+
+      <button type="submit" class="btn btn-primary w-100 mt-3">Save & Continue</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

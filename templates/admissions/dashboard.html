@@ -1,0 +1,74 @@
+{% extends 'admissions/dashboard_base.html' %}
+
+{% block title %}Dashboard · {{ COLLEGE_SHORT_NAME }} Admissions{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Welcome, {{ request.user.first_name|default:request.user.username }}!</h4>
+<p class="text-muted mb-4">Track your application below.</p>
+
+{% if not applicant.has_paid %}
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title"><i class="bi bi-exclamation-circle-fill text-brand me-2"></i>Payment Required</h5>
+      <p class="text-muted">
+        Pay the ₦{{ fee }} application fee, or enter a referral code, to unlock the application form.
+      </p>
+      <div class="d-flex gap-2">
+        <a href="{% url 'admissions:initiate_payment' %}" class="btn btn-primary">
+          <i class="bi bi-credit-card me-1"></i> Pay Application Fee
+        </a>
+        <a href="{% url 'admissions:referral_check' %}" class="btn btn-outline-primary">
+          <i class="bi bi-ticket-perforated me-1"></i> Enter Referral Code
+        </a>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="card-title mb-0">Application Progress</h5>
+        <span class="badge bg-brand">{{ application.completion_percent }}%</span>
+      </div>
+      <div class="progress mb-3" style="height: 8px;">
+        <div class="progress-bar" style="width: {{ application.completion_percent }}%;"></div>
+      </div>
+
+      <div class="list-group list-group-flush">
+        {% for label, url_name, complete in sections %}
+          <a href="{% url url_name %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            {{ label }}
+            {% if complete %}
+              <span class="badge bg-success"><i class="bi bi-check-lg"></i> Done</span>
+            {% else %}
+              <span class="badge bg-secondary">Pending</span>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Status: <span class="badge bg-brand">{{ application.get_status_display }}</span></h5>
+      {% if application.status == 'rejected' and application.rejection_reason %}
+        <p class="text-danger">Reason: {{ application.rejection_reason }}</p>
+      {% endif %}
+
+      {% if application.all_sections_complete %}
+        <a href="{% url 'admissions:summary' %}" class="btn btn-primary">
+          <i class="bi bi-clipboard-check me-1"></i> Review & Submit
+        </a>
+        {% if application.status != 'draft' %}
+          <a href="{% url 'admissions:application_pdf' %}" class="btn btn-outline-primary">
+            <i class="bi bi-download me-1"></i> Download PDF
+          </a>
+        {% endif %}
+      {% else %}
+        <p class="text-muted small mb-0">Complete all five sections above to submit your application.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

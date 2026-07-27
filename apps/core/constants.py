@@ -30,6 +30,7 @@ class Role(models.TextChoices):
     PRACTICAL_COORD = 'practical_coord', 'Practical Coordinator'
     ICT_ADMIN = 'ict_admin', 'ICT Administrator'
     SUPER_ADMIN = 'super_admin', 'Super Administrator'
+    APPLICANT = 'applicant', 'Applicant'
 
 
 # Roles that are considered "staff" for Django admin/staff-area access.
@@ -55,6 +56,7 @@ ROLE_DASHBOARD_URL_NAMES = {
     Role.PRACTICAL_COORD: 'dashboard:practical_coordinator',
     Role.ICT_ADMIN: 'dashboard:ict_admin',
     Role.SUPER_ADMIN: 'dashboard:super_admin',
+    Role.APPLICANT: 'admissions:dashboard',
 }
 
 # Maps each role to the custom (non-CRUD) permission codenames its group

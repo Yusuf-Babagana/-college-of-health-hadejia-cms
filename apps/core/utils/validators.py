@@ -42,6 +42,18 @@ def validate_pdf_file(file):
     validate_file_size(file, max_mb=10)
 
 
+def validate_document_file(file):
+    """Accepts either a scanned image or a PDF - for supporting documents
+    (certificates, result slips) where either format is normal to receive.
+    """
+    valid_extensions = ('.jpg', '.jpeg', '.png', '.webp', '.pdf')
+    if not str(file.name).lower().endswith(valid_extensions):
+        raise ValidationError(
+            f'Unsupported file type. Allowed: {", ".join(valid_extensions)}'
+        )
+    validate_file_size(file, max_mb=10)
+
+
 def validate_positive_amount(value):
     if value <= 0:
         raise ValidationError('Amount must be greater than zero.')

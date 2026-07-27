@@ -50,6 +50,7 @@ LOCAL_APPS = [
     'apps.results',
     'apps.practicals',
     'apps.dashboard',
+    'apps.admissions',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -154,6 +155,10 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@coihst.edu.ng')
 PAYSTACK_SECRET_KEY = env('PAYSTACK_SECRET_KEY', default='')
 PAYSTACK_PUBLIC_KEY = env('PAYSTACK_PUBLIC_KEY', default='')
 
+# Admissions portal
+
+ADMISSIONS_APPLICATION_FEE = env.int('ADMISSIONS_APPLICATION_FEE', default=7500)
+
 # College identity
 
 COLLEGE_NAME = 'College of Health Sciences and Technology, Hadejia'
@@ -221,6 +226,12 @@ JAZZMIN_SETTINGS = {
         'reports': 'fas fa-chart-bar',
         'audit': 'fas fa-history',
         'core': 'fas fa-cogs',
+        'admissions': 'fas fa-file-signature',
+        'admissions.Applicant': 'fas fa-user-clock',
+        'admissions.Application': 'fas fa-file-signature',
+        'admissions.Programme': 'fas fa-graduation-cap',
+        'admissions.ReferralCode': 'fas fa-ticket-alt',
+        'admissions.AdmissionPayment': 'fas fa-money-check-alt',
     },
     'default_icon_parents': 'fas fa-chevron-circle-right',
     'default_icon_children': 'fas fa-circle',

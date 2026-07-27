@@ -1,0 +1,48 @@
+{% extends 'admissions/dashboard_base.html' %}
+
+{% block title %}Section B: Educational History · {{ COLLEGE_SHORT_NAME }} Admissions{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body p-4">
+    <h5 class="card-title mb-1">Section B: Educational History</h5>
+    <p class="text-muted small mb-4">List up to three schools you have attended.</p>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ formset.management_form }}
+
+      {% for form in formset %}
+        <div class="border rounded p-3 mb-3">
+          <h6 class="text-muted">School {{ forloop.counter }}</h6>
+          {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">{{ form.school_name.label }}</label>
+              {{ form.school_name }}
+              {{ form.school_name.errors }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">{{ form.qualification.label }}</label>
+              {{ form.qualification }}
+              {{ form.qualification.errors }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">{{ form.start_year.label }}</label>
+              {{ form.start_year }}
+              {{ form.start_year.errors }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">{{ form.end_year.label }}</label>
+              {{ form.end_year }}
+              {{ form.end_year.errors }}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+
+      <button type="submit" class="btn btn-primary w-100">Save & Continue</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
