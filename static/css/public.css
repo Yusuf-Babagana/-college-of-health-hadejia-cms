@@ -11,6 +11,7 @@
   --pub-teal-dark: #0284c7;
   --pub-ink: #0f2547;
   --pub-surface-muted: #f0f6fd;
+  --pub-footer-bg: #0f2547;
 }
 
 /* ---------- Navbar ---------- */
@@ -254,7 +255,7 @@
 
 /* ---------- Footer ---------- */
 .footer-public {
-  background: var(--pub-ink);
+  background: var(--pub-footer-bg);
   color: rgba(255, 255, 255, 0.75);
 }
 
