@@ -1,11 +1,12 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block body %}
 {% include 'partials/_messages.html' %}
 <div class="auth-wrapper">
   <div class="auth-card shadow-lg p-4 p-md-5">
     <div class="text-center mb-4">
-      <i class="bi bi-heart-pulse-fill text-brand" style="font-size: 2.5rem;"></i>
+      <img src="{% static 'img/brand/logo.png' %}" alt="{{ COLLEGE_NAME }} crest" width="72" height="72">
       <h4 class="mt-2 mb-0">{{ COLLEGE_NAME }}</h4>
     </div>
     {% block auth_body %}{% endblock %}
