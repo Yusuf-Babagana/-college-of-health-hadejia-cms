@@ -39,6 +39,21 @@ class Course(BaseModel):
         related_name='courses',
         help_text='The programme (within the department) this course belongs to, if any.',
     )
+    eligible_departments = models.ManyToManyField(
+        'departments.Department',
+        blank=True,
+        related_name='cross_listed_courses',
+        help_text='Extra departments (besides this course\'s own Department above) whose '
+                   'students may also register for it - e.g. a General Studies course taken '
+                   'by several departments. Leave blank for an ordinary single-department course.',
+    )
+    eligible_programmes = models.ManyToManyField(
+        'admissions.Programme',
+        blank=True,
+        related_name='cross_listed_courses',
+        help_text='Extra programmes (besides this course\'s own Programme above) whose '
+                   'students may also register for it. Leave blank for an ordinary course.',
+    )
 
     class Meta:
         verbose_name = 'Course'

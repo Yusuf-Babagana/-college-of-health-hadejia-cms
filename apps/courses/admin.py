@@ -13,6 +13,7 @@ class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_filter = SoftDeleteAdminMixin.list_filter + ('level', 'semester_name', 'department')
     search_fields = ('code', 'title')
     autocomplete_fields = ('department', 'programme')
+    filter_horizontal = ('eligible_departments', 'eligible_programmes')
     ordering = ('code',)
     readonly_fields = ('id', 'created_at', 'updated_at')
 

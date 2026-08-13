@@ -10,7 +10,14 @@ class CourseForm(CrispyFormMixin, forms.ModelForm):
 
     class Meta:
         model = Course
-        fields = ('code', 'title', 'credit_units', 'level', 'semester_name', 'department', 'programme')
+        fields = (
+            'code', 'title', 'credit_units', 'level', 'semester_name', 'department', 'programme',
+            'eligible_departments', 'eligible_programmes',
+        )
+        widgets = {
+            'eligible_departments': forms.CheckboxSelectMultiple(),
+            'eligible_programmes': forms.CheckboxSelectMultiple(),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -26,6 +33,12 @@ class CourseForm(CrispyFormMixin, forms.ModelForm):
             },
         )
         programme_field.widget.choices = programme_field.choices
+
+        self.fields['eligible_departments'].required = False
+        self.fields['eligible_programmes'].required = False
+        self.fields['eligible_programmes'].queryset = self.fields['eligible_programmes'].queryset.filter(
+            is_active=True,
+        )
 
 
 class CourseOfferingForm(CrispyFormMixin, forms.ModelForm):

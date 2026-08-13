@@ -42,18 +42,47 @@ def get_available_offerings_for_student(student, semester):
     """FR-STU-05: offerings a student can register for - their own
     department AND level, the given semester, excluding ones they're
     already actively registered in (those show up under "My Courses"
-    instead). Also includes General Studies offerings at the student's
-    level, regardless of department - GST is college-wide, not scoped
-    to one department's students.
+    instead). A course is also available when either:
+      - the student's own department/programme is explicitly listed in
+        the course's eligible_departments/eligible_programmes (a course
+        cross-listed to specific departments/programmes - e.g. a GST
+        course shared by only a few departments), or
+      - its department is flagged General Studies (open to every
+        student college-wide) - but only as a fallback for courses that
+        DON'T have an explicit eligible_departments/eligible_programmes
+        list of their own. An HOD narrowing one specific GST course to a
+        handful of departments/programmes should actually narrow it, not
+        get overridden by the blanket "everyone" default.
+
+    Computed as two separate queries unioned by pk (rather than one query
+    combining multiple M2M lookups with Q/~Q) to avoid Django's usual
+    multi-valued-relationship join pitfalls.
     """
     registered_offering_ids = CourseRegistration.objects.filter(
         student=student, status=CourseRegistration.Status.REGISTERED,
     ).values_list('course_offering_id', flat=True)
 
-    return CourseOffering.objects.filter(
-        Q(course__department=student.department) | Q(course__department__is_general_studies=True),
+    base_qs = CourseOffering.objects.filter(
         course__level=student.level, semester=semester,
-    ).exclude(pk__in=registered_offering_ids).select_related('course', 'lecturer', 'lecturer__user')
+    ).exclude(pk__in=registered_offering_ids)
+
+    explicit_eligibility = Q(course__department=student.department) | Q(
+        course__eligible_departments=student.department,
+    )
+    if student.programme_id:
+        explicit_eligibility |= Q(course__eligible_programmes=student.programme_id)
+    explicit_ids = set(base_qs.filter(explicit_eligibility).values_list('pk', flat=True))
+
+    blanket_ids = set(
+        base_qs.filter(course__department__is_general_studies=True)
+        .exclude(course__eligible_departments__isnull=False)
+        .exclude(course__eligible_programmes__isnull=False)
+        .values_list('pk', flat=True)
+    )
+
+    return base_qs.filter(pk__in=explicit_ids | blanket_ids).select_related(
+        'course', 'lecturer', 'lecturer__user',
+    )
 
 
 def get_registered_courses(student, *, semester=None):
