@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('is_deleted', models.BooleanField(db_index=True, default=False)),
                 ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('matric_number', models.CharField(max_length=30, unique=True, validators=[django.core.validators.RegexValidator(message='Enter a valid matric number, e.g. COHST/2024/0001.', regex='^[A-Z]{2,6}/\\d{2,4}/\\d{3,6}$')])),
+                ('matric_number', models.CharField(max_length=30, unique=True, validators=[django.core.validators.RegexValidator(message='Enter a valid matric number, e.g. CHE/2025/0001.', regex='^[A-Z]{2,6}/\\d{2,4}/\\d{3,6}$')])),
                 ('level', models.PositiveSmallIntegerField(choices=[(100, '100 Level'), (200, '200 Level'), (300, '300 Level'), (400, '400 Level'), (500, '500 Level'), (600, '600 Level')], default=100)),
                 ('status', models.CharField(choices=[('active', 'Active'), ('suspended', 'Suspended'), ('withdrawn', 'Withdrawn'), ('graduated', 'Graduated')], default='active', max_length=15)),
                 ('admission_session', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='admitted_students', to='academics.academicsession')),

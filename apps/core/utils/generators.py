@@ -13,7 +13,7 @@ from datetime import datetime
 
 
 def generate_matric_number(department_code: str, admission_year: int, sequence: int) -> str:
-    """e.g. generate_matric_number('COHST/NUR', 2024, 7) -> 'COHST/NUR/2024/0007'"""
+    """e.g. generate_matric_number('CHE', 2025, 7) -> 'CHE/2025/0007'"""
     return f'{department_code.upper()}/{admission_year}/{sequence:04d}'
 
 

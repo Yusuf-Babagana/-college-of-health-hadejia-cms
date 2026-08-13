@@ -31,10 +31,15 @@ class Grade(BaseModel):
         on_delete=models.CASCADE,
         related_name='grades',
     )
-    ca_score = models.DecimalField(
+    ca1_score = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('0.00'),
-        validators=[MinValueValidator(0), MaxValueValidator(30)],
-        help_text='Continuous assessment, out of 30.',
+        validators=[MinValueValidator(0), MaxValueValidator(15)],
+        help_text='First continuous assessment, out of 15.',
+    )
+    ca2_score = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('0.00'),
+        validators=[MinValueValidator(0), MaxValueValidator(15)],
+        help_text='Second continuous assessment, out of 15.',
     )
     exam_score = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('0.00'),
@@ -60,6 +65,14 @@ class Grade(BaseModel):
 
     def __str__(self):
         return f'{self.student.matric_number} - {self.course_offering}'
+
+    @property
+    def ca_score(self):
+        """Combined CA1 + CA2, out of 30 - kept as a read-only property so
+        anything computing off the total (grade_band, broadsheets, admin
+        list_display) doesn't need to know about the CA1/CA2 split.
+        """
+        return self.ca1_score + self.ca2_score
 
     @property
     def total_score(self):

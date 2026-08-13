@@ -14,6 +14,16 @@ class Level(models.IntegerChoices):
     LEVEL_600 = 600, '600 Level'
 
 
+class SemesterName(models.TextChoices):
+    """Shared between academics.Semester (a semester within a session)
+    and courses.Course (which semester a catalog course is normally
+    taught in), so a course's declared semester and an offering's actual
+    semester can be compared directly.
+    """
+    FIRST = 'first', 'First Semester'
+    SECOND = 'second', 'Second Semester'
+
+
 # FR-STU-06: the hard ceiling on how many credit units a student may
 # carry in a single semester, regardless of how many offerings are open.
 MAX_CREDIT_UNITS_PER_SEMESTER = 24

@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from apps.core.constants import SemesterName
 from apps.core.models import BaseModel
 
 
@@ -11,9 +12,10 @@ class Semester(BaseModel):
     (Level 100 can be in First Semester while Level 200 is in Second).
     """
 
-    class SemesterName(models.TextChoices):
-        FIRST = 'first', 'First Semester'
-        SECOND = 'second', 'Second Semester'
+    # Kept as an attribute for backward compatibility with any code/templates
+    # referencing Semester.SemesterName - the canonical definition now lives
+    # in apps.core.constants so courses.Course can share the same choices.
+    SemesterName = SemesterName
 
     session = models.ForeignKey(
         'academics.AcademicSession',

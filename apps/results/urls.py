@@ -32,6 +32,7 @@ urlpatterns = [
     path('master-broadsheet/export/', views.MasterBroadsheetExportView.as_view(), name='master_broadsheet_export'),
 
     path('my-results/', views.MyResultsView.as_view(), name='my_results'),
+    path('my-score-sheet/', views.MyScoreSheetView.as_view(), name='my_score_sheet'),
     path('my-transcript/', views.MyTranscriptPDFView.as_view(), name='my_transcript'),
 
     path('transcripts/', views.TranscriptSearchView.as_view(), name='transcript_search'),

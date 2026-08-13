@@ -75,7 +75,12 @@ class GradeBandDeleteView(GradeBandRoleMixin, View):
 # ---------------------------------------------------------------------------
 
 class LecturerResultsRoleMixin(RoleRequiredMixin):
-    allowed_roles = (Role.LECTURER,)
+    """Anyone with a Lecturer profile handles grading for their own
+    assigned offerings - including an HOD, who keeps their Lecturer
+    profile after promotion (see apps.lecturers.models.Lecturer.clean())
+    and is often still assigned courses to teach directly.
+    """
+    allowed_roles = (Role.LECTURER, Role.HOD)
 
 
 class LecturerOfferingListView(LecturerResultsRoleMixin, ListView):
@@ -392,6 +397,23 @@ class MyResultsView(RoleRequiredMixin, TemplateView):
             return context
 
         context.update(selectors.get_transcript_for_student(student_profile))
+        return context
+
+
+class MyScoreSheetView(RoleRequiredMixin, TemplateView):
+    """FR: a student's live CA1/CA2 scores for every course they're
+    registered for, visible the moment a lecturer saves them - unlike
+    "My Results", this doesn't wait for submission/approval/publish.
+    """
+    allowed_roles = (Role.STUDENT,)
+    template_name = 'results/my_score_sheet.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        student_profile = getattr(self.request.user, 'student_profile', None)
+        context['student_profile'] = student_profile
+        if student_profile:
+            context['score_rows'] = selectors.get_score_sheet_for_student(student_profile)
         return context
 
 

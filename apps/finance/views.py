@@ -335,8 +335,13 @@ class PaymentListView(FinanceManagementRoleMixin, PaginatedListMixin, ListView):
         return context
 
 
-class RecordOfflinePaymentView(FinanceManagementRoleMixin, FormView):
-    """FR-FIN-03: Bursar manually records a bank-teller payment."""
+class RecordOfflinePaymentView(RoleRequiredMixin, FormView):
+    """Recording an offline (bank-teller) payment is Super Admin-only -
+    unlike the rest of finance, it's deliberately kept out of the
+    Bursar's hands since it lets someone credit an invoice without any
+    Paystack verification trail.
+    """
+    allowed_roles = (Role.SUPER_ADMIN,)
     form_class = RecordOfflinePaymentForm
     template_name = 'finance/record_offline_payment.html'
     success_url = reverse_lazy('finance:invoice_list')
