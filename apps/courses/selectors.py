@@ -42,14 +42,17 @@ def get_available_offerings_for_student(student, semester):
     """FR-STU-05: offerings a student can register for - their own
     department AND level, the given semester, excluding ones they're
     already actively registered in (those show up under "My Courses"
-    instead).
+    instead). Also includes General Studies offerings at the student's
+    level, regardless of department - GST is college-wide, not scoped
+    to one department's students.
     """
     registered_offering_ids = CourseRegistration.objects.filter(
         student=student, status=CourseRegistration.Status.REGISTERED,
     ).values_list('course_offering_id', flat=True)
 
     return CourseOffering.objects.filter(
-        course__department=student.department, course__level=student.level, semester=semester,
+        Q(course__department=student.department) | Q(course__department__is_general_studies=True),
+        course__level=student.level, semester=semester,
     ).exclude(pk__in=registered_offering_ids).select_related('course', 'lecturer', 'lecturer__user')
 
 

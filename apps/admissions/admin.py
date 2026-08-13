@@ -21,9 +21,11 @@ from .models import (
 
 @admin.register(Programme)
 class ProgrammeAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('name', 'short_code', 'is_active')
+    list_display = ('name', 'short_code', 'department', 'is_active')
     list_editable = ('is_active',)
+    list_filter = SoftDeleteAdminMixin.list_filter + ('department',)
     search_fields = ('name', 'short_code')
+    autocomplete_fields = ('department',)
 
 
 @admin.register(ReferralCode)

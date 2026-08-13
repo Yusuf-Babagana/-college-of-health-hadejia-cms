@@ -22,11 +22,14 @@ class GradeBandForm(CrispyFormMixin, forms.ModelForm):
 # variable names ("ca"/"exam") are safe to reuse across every row.
 GradeEntryFormSet = modelformset_factory(
     Grade,
-    fields=('ca_score', 'exam_score'),
+    fields=('ca1_score', 'ca2_score', 'exam_score'),
     extra=0,
     widgets={
-        'ca_score': forms.NumberInput(attrs={
-            'class': 'form-control form-control-sm', 'step': '0.5', 'x-model.number': 'ca',
+        'ca1_score': forms.NumberInput(attrs={
+            'class': 'form-control form-control-sm', 'step': '0.5', 'x-model.number': 'ca1',
+        }),
+        'ca2_score': forms.NumberInput(attrs={
+            'class': 'form-control form-control-sm', 'step': '0.5', 'x-model.number': 'ca2',
         }),
         'exam_score': forms.NumberInput(attrs={
             'class': 'form-control form-control-sm', 'step': '0.5', 'x-model.number': 'exam',

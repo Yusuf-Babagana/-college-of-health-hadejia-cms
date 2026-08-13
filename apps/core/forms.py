@@ -1,5 +1,30 @@
+from django import forms
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
+
+
+class DepartmentScopedSelect(forms.Select):
+    """A <select> whose <option>s each carry a data-department="<id>"
+    attribute, so a small JS snippet (see static/js/department-scoped-select.js)
+    can filter them client-side to match whatever Department is currently
+    selected elsewhere in the same form - e.g. narrowing the Programme
+    dropdown to the chosen Department without a page reload or an extra
+    AJAX endpoint.
+
+    ``department_by_value`` maps each option's field value (as a string)
+    to its owning department's id (also as a string).
+    """
+
+    def __init__(self, *args, department_by_value=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.department_by_value = department_by_value or {}
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        department_id = self.department_by_value.get(str(value))
+        if department_id:
+            option['attrs']['data-department'] = str(department_id)
+        return option
 
 
 class CrispyFormMixin:

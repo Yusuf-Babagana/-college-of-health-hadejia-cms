@@ -21,14 +21,15 @@
           <tr>
             <th>Matric Number</th>
             <th>Name</th>
-            <th style="width:130px;">CA (/30)</th>
+            <th style="width:110px;">CA1 (/15)</th>
+            <th style="width:110px;">CA2 (/15)</th>
             <th style="width:130px;">Exam (/70)</th>
             <th>Total</th>
           </tr>
         </thead>
         <tbody>
           {% for form in formset %}
-          <tr x-data="{ ca: {{ form.instance.ca_score|default:0 }}, exam: {{ form.instance.exam_score|default:0 }} }">
+          <tr x-data="{ ca1: {{ form.instance.ca1_score|default:0 }}, ca2: {{ form.instance.ca2_score|default:0 }}, exam: {{ form.instance.exam_score|default:0 }} }">
             {{ form.id }}
             <td>
               <span class="badge badge-teal">{{ form.instance.student.matric_number }}</span>
@@ -40,14 +41,18 @@
             </td>
             <td>{{ form.instance.student.user.get_full_name }}</td>
             <td>
-              {{ form.ca_score }}
-              {% for error in form.ca_score.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+              {{ form.ca1_score }}
+              {% for error in form.ca1_score.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </td>
+            <td>
+              {{ form.ca2_score }}
+              {% for error in form.ca2_score.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
             </td>
             <td>
               {{ form.exam_score }}
               {% for error in form.exam_score.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
             </td>
-            <td class="fw-semibold" x-text="(ca + exam).toFixed(2)"></td>
+            <td class="fw-semibold" x-text="(ca1 + ca2 + exam).toFixed(2)"></td>
           </tr>
           {% endfor %}
         </tbody>
@@ -82,7 +87,8 @@
         <tr>
           <th>Matric Number</th>
           <th>Name</th>
-          <th>CA</th>
+          <th>CA1</th>
+          <th>CA2</th>
           <th>Exam</th>
           <th>Total</th>
           <th>Status</th>
@@ -94,7 +100,8 @@
         <tr>
           <td>{{ grade.student.matric_number }}</td>
           <td>{{ grade.student.user.get_full_name }}</td>
-          <td>{{ grade.ca_score }}</td>
+          <td>{{ grade.ca1_score }}</td>
+          <td>{{ grade.ca2_score }}</td>
           <td>{{ grade.exam_score }}</td>
           <td>{{ grade.total_score }}</td>
           <td>

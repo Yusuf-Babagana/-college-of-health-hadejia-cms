@@ -2,10 +2,10 @@
 Business logic for account/profile/password operations. Views stay thin
 and call these; they own request/response plumbing only.
 """
-import secrets
-
 from django.contrib.auth import update_session_auth_hash
 from django.core.exceptions import ValidationError
+
+from apps.core.utils.generators import generate_otp
 
 from .models import User
 
@@ -14,9 +14,13 @@ def create_user(*, username, email, first_name, last_name, role, phone_number=''
     """Provision a new account (any role).
 
     If ``password`` is given, the ICT Admin has chosen it themselves and is
-    responsible for handing it to the new user. Otherwise a random
-    temporary password is generated and returned so the caller (view) can
-    show it exactly once - it is not stored anywhere in plain text.
+    responsible for handing it to the new user. Otherwise a temporary
+    6-digit numeric password is generated and returned so the caller
+    (view) can show it exactly once - it is not stored anywhere in plain
+    text. Kept short and numeric (rather than a long random string) so a
+    student can read it off a slip and type it in without transcription
+    errors; must_change_password (below) means it's only ever valid for
+    that first login anyway.
 
     Either way, must_change_password forces the owner to set their own
     password on first login: a password someone else knows shouldn't
@@ -24,7 +28,7 @@ def create_user(*, username, email, first_name, last_name, role, phone_number=''
     """
     is_generated = not password
     if is_generated:
-        password = secrets.token_urlsafe(9)
+        password = generate_otp(length=6)
 
     user = User.objects.create_user(
         username=username,

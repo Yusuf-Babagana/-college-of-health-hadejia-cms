@@ -1,11 +1,12 @@
 {% extends 'dashboard_base.html' %}
-{% load crispy_forms_tags %}
+{% load crispy_forms_tags static %}
 
 {% block title %}{{ form_title }} · {{ COLLEGE_SHORT_NAME }}{% endblock %}
 {% block breadcrumb_items %}
   <li class="breadcrumb-item"><a href="{% url 'students:student_list' %}">Students</a></li>
   <li class="breadcrumb-item active">{{ form_title }}</li>
 {% endblock %}
+{% block extra_js %}<script src="{% static 'js/department-scoped-select.js' %}"></script>{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">

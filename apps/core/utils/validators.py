@@ -12,7 +12,7 @@ phone_number_validator = RegexValidator(
 
 matric_number_validator = RegexValidator(
     regex=r'^[A-Z]{2,6}/\d{2,4}/\d{3,6}$',
-    message='Enter a valid matric number, e.g. COHST/2024/0001.',
+    message='Enter a valid matric number, e.g. CHE/2025/0001.',
 )
 
 academic_session_name_validator = RegexValidator(

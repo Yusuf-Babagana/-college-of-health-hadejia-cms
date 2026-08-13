@@ -36,7 +36,7 @@ def _next_matric_number(department, admission_session):
 
 
 def create_student(*, first_name, last_name, email, phone_number='', department, level,
-                   admission_session, matric_number=''):
+                   admission_session, matric_number='', programme=None):
     """Provision a student: User account (role=student, temporary
     password) plus Student profile, atomically - a half-created student
     (account without profile) would be able to log in but see nothing.
@@ -65,6 +65,7 @@ def create_student(*, first_name, last_name, email, phone_number='', department,
             user=user,
             matric_number=matric_number,
             department=department,
+            programme=programme,
             level=level,
             admission_session=admission_session,
         )

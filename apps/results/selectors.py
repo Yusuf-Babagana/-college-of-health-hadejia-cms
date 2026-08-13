@@ -58,6 +58,40 @@ def get_published_results_for_student(student, *, semester=None):
     return qs
 
 
+def get_score_sheet_for_student(student, *, semester=None):
+    """FR: every course a student is registered for, with their CA1/CA2
+    scores exactly as the lecturer has saved them so far - regardless of
+    Grade.status. Unlike published results, this is live: a score shows
+    up the moment a lecturer saves it in Grade Entry, even in Draft.
+    Exam score and letter grade are deliberately left out - those stay
+    behind the normal publish gate.
+    """
+    from apps.courses.models import CourseRegistration
+
+    registrations = CourseRegistration.objects.filter(
+        student=student, status=CourseRegistration.Status.REGISTERED,
+    ).select_related(
+        'course_offering', 'course_offering__course',
+        'course_offering__semester', 'course_offering__semester__session',
+    ).order_by('-course_offering__semester__session__name', 'course_offering__course__code')
+
+    if semester:
+        registrations = registrations.filter(course_offering__semester=semester)
+
+    grades_by_offering = {
+        grade.course_offering_id: grade
+        for grade in Grade.objects.filter(
+            student=student,
+            course_offering_id__in=[reg.course_offering_id for reg in registrations],
+        )
+    }
+
+    return [
+        {'course_offering': reg.course_offering, 'grade': grades_by_offering.get(reg.course_offering_id)}
+        for reg in registrations
+    ]
+
+
 def _weighted_average(grades):
     total_points = 0.0
     total_units = 0

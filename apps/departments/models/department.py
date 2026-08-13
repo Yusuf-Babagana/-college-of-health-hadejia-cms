@@ -12,6 +12,12 @@ class Department(BaseModel):
         help_text='Short code used in course prefixes, e.g. CHE, EHS.',
     )
     description = models.TextField(blank=True)
+    is_general_studies = models.BooleanField(
+        default=False,
+        help_text='General Studies (or similar): courses under this department are '
+                   'available to every student at the matching level, not just its own '
+                   'students. Its HOD still assigns/allocates its courses like any other HOD.',
+    )
     hod = models.ForeignKey(
         'lecturers.Lecturer',
         on_delete=models.SET_NULL,

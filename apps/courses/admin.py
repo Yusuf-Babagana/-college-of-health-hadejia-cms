@@ -7,10 +7,12 @@ from .models import Course, CourseOffering, CourseRegistration
 
 @admin.register(Course)
 class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('code', 'title', 'credit_units', 'level', 'department', 'is_deleted')
-    list_filter = SoftDeleteAdminMixin.list_filter + ('level', 'department')
+    list_display = (
+        'code', 'title', 'credit_units', 'level', 'semester_name', 'department', 'programme', 'is_deleted',
+    )
+    list_filter = SoftDeleteAdminMixin.list_filter + ('level', 'semester_name', 'department')
     search_fields = ('code', 'title')
-    autocomplete_fields = ('department',)
+    autocomplete_fields = ('department', 'programme')
     ordering = ('code',)
     readonly_fields = ('id', 'created_at', 'updated_at')
 

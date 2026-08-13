@@ -1,7 +1,7 @@
 from django import forms
 
 from apps.core.constants import Level
-from apps.core.forms import CrispyFormMixin
+from apps.core.forms import CrispyFormMixin, DepartmentScopedSelect
 from apps.core.utils.validators import matric_number_validator, phone_number_validator
 
 from .models import Student
@@ -22,6 +22,10 @@ class StudentCreateForm(CrispyFormMixin, forms.Form):
     email = forms.EmailField()
     phone_number = forms.CharField(max_length=15, required=False, validators=[phone_number_validator])
     department = forms.ModelChoiceField(queryset=None)
+    programme = forms.ModelChoiceField(
+        queryset=None, required=False,
+        help_text='Choose the Department above first - Programme narrows to match it.',
+    )
     level = forms.TypedChoiceField(choices=Level.choices, coerce=int, initial=Level.LEVEL_100)
     admission_session = forms.ModelChoiceField(queryset=None)
     matric_number = forms.CharField(
@@ -33,10 +37,22 @@ class StudentCreateForm(CrispyFormMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from apps.academics.selectors import get_active_sessions
+        from apps.admissions.models import Programme
         from apps.departments.selectors import get_active_departments
 
         self.fields['department'].queryset = get_active_departments()
         self.fields['admission_session'].queryset = get_active_sessions()
+
+        programme_qs = Programme.objects.filter(is_active=True)
+        self.fields['programme'].queryset = programme_qs
+        self.fields['programme'].widget = DepartmentScopedSelect(
+            attrs={'data-scoped-by': 'department'},
+            department_by_value={
+                str(pk): str(department_id)
+                for pk, department_id in programme_qs.values_list('pk', 'department_id')
+            },
+        )
+        self.fields['programme'].widget.choices = self.fields['programme'].choices
 
     def clean_matric_number(self):
         # Uppercase before validating, so 'che/2025/0005' is accepted -
@@ -67,4 +83,8 @@ class StudentProfileForm(CrispyFormMixin, forms.ModelForm):
 
     class Meta:
         model = Student
-        fields = ('department', 'level')
+        fields = ('department', 'programme', 'level')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['programme'].queryset = self.fields['programme'].queryset.filter(is_active=True)

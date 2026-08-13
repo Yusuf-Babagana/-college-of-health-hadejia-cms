@@ -1,6 +1,6 @@
 from django import forms
 
-from apps.core.forms import CrispyFormMixin
+from apps.core.forms import CrispyFormMixin, DepartmentScopedSelect
 
 from .models import Course, CourseOffering
 
@@ -10,7 +10,22 @@ class CourseForm(CrispyFormMixin, forms.ModelForm):
 
     class Meta:
         model = Course
-        fields = ('code', 'title', 'credit_units', 'level', 'department')
+        fields = ('code', 'title', 'credit_units', 'level', 'semester_name', 'department', 'programme')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        programme_field = self.fields['programme']
+        programme_field.queryset = programme_field.queryset.filter(is_active=True)
+        programme_field.required = False
+        programme_field.help_text = 'Choose the Department above first - Programme narrows to match it.'
+        programme_field.widget = DepartmentScopedSelect(
+            attrs={'data-scoped-by': 'department'},
+            department_by_value={
+                str(pk): str(department_id)
+                for pk, department_id in programme_field.queryset.values_list('pk', 'department_id')
+            },
+        )
+        programme_field.widget.choices = programme_field.choices
 
 
 class CourseOfferingForm(CrispyFormMixin, forms.ModelForm):
@@ -63,6 +78,12 @@ class CourseOfferingForm(CrispyFormMixin, forms.ModelForm):
                     'course',
                     f'No semester is in progress for {course.get_level_display()}. '
                     'Ask the Registrar to set one under Level Semesters.',
+                )
+            elif semester.name != course.semester_name:
+                self.add_error(
+                    'course',
+                    f'"{course.code}" is a {course.get_semester_name_display()} course, but '
+                    f'{course.get_level_display()} is currently running {semester.get_name_display()}.',
                 )
             cleaned_data['semester'] = semester
 

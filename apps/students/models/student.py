@@ -33,6 +33,13 @@ class Student(BaseModel):
         on_delete=models.PROTECT,
         related_name='students',
     )
+    programme = models.ForeignKey(
+        'admissions.Programme',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='students',
+        help_text='The programme (within the department) this student is enrolled in, if any.',
+    )
     level = models.PositiveSmallIntegerField(choices=Level.choices, default=Level.LEVEL_100)
     admission_session = models.ForeignKey(
         'academics.AcademicSession',

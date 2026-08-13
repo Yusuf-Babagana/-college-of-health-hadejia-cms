@@ -1,0 +1,60 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}My Score Sheet · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">My Score Sheet</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">My Score Sheet</h4>
+<p class="text-muted small mb-4">
+  Live CA1/CA2 scores for every course you're registered for, shown as soon as your lecturer saves them -
+  no need to wait for results to be published. Exam scores and final grades still only appear on
+  <a href="{% url 'results:my_results' %}">My Results</a> once published.
+</p>
+
+{% if not student_profile %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No student profile is linked to your account. Contact the Registrar.
+  </div>
+{% elif not score_rows %}
+  <div class="alert alert-info">
+    <i class="bi bi-info-circle me-1"></i>
+    You're not registered for any courses yet.
+  </div>
+{% else %}
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Code</th>
+          <th>Course</th>
+          <th>Semester</th>
+          <th style="width:100px;">CA1 (/15)</th>
+          <th style="width:100px;">CA2 (/15)</th>
+          <th style="width:100px;">CA Total (/30)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in score_rows %}
+        <tr>
+          <td><span class="badge badge-teal">{{ row.course_offering.course.code }}</span></td>
+          <td>{{ row.course_offering.course.title }}</td>
+          <td class="text-muted small">{{ row.course_offering.semester }}</td>
+          {% if row.grade %}
+            <td>{{ row.grade.ca1_score }}</td>
+            <td>{{ row.grade.ca2_score }}</td>
+            <td class="fw-semibold">{{ row.grade.ca_score }}</td>
+          {% else %}
+            <td class="text-muted">—</td>
+            <td class="text-muted">—</td>
+            <td class="text-muted">Not entered yet</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -45,7 +45,8 @@
             <th>Code</th>
             <th>Course</th>
             <th>Units</th>
-            <th>CA</th>
+            <th>CA1</th>
+            <th>CA2</th>
             <th>Exam</th>
             <th>Total</th>
             <th>Grade</th>
@@ -58,7 +59,8 @@
             <td><span class="badge badge-teal">{{ grade.course_offering.course.code }}</span></td>
             <td>{{ grade.course_offering.course.title }}</td>
             <td>{{ grade.course_offering.course.credit_units }}</td>
-            <td>{{ grade.ca_score }}</td>
+            <td>{{ grade.ca1_score }}</td>
+            <td>{{ grade.ca2_score }}</td>
             <td>{{ grade.exam_score }}</td>
             <td class="fw-semibold">{{ grade.total_score }}</td>
             <td>{{ grade.letter_grade|default:'—' }}</td>

@@ -1,8 +1,7 @@
-from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from apps.core.constants import Level
+from apps.core.constants import Level, SemesterName
 from apps.core.models import BaseModel
 
 
@@ -13,7 +12,7 @@ class Course(BaseModel):
 
     code = models.CharField(
         max_length=20, unique=True,
-        help_text='e.g. CHE101. Must start with the parent department\'s code.',
+        help_text='e.g. CHE101.',
     )
     title = models.CharField(max_length=200)
     credit_units = models.PositiveSmallIntegerField(
@@ -23,10 +22,22 @@ class Course(BaseModel):
         choices=Level.choices, default=Level.LEVEL_100,
         help_text='The student level this course is offered to (FR-STU-05).',
     )
+    semester_name = models.CharField(
+        max_length=10, choices=SemesterName.choices, default=SemesterName.FIRST,
+        help_text='Which semester this course is normally taught in - a Course '
+                   'Offering for this course can only be created in a matching semester.',
+    )
     department = models.ForeignKey(
         'departments.Department',
         on_delete=models.PROTECT,
         related_name='courses',
+    )
+    programme = models.ForeignKey(
+        'admissions.Programme',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='courses',
+        help_text='The programme (within the department) this course belongs to, if any.',
     )
 
     class Meta:
@@ -40,7 +51,3 @@ class Course(BaseModel):
     def clean(self):
         if self.code:
             self.code = self.code.strip().upper()
-        if self.code and self.department_id and not self.code.startswith(self.department.code):
-            raise ValidationError({
-                'code': f'Course code should start with the department code "{self.department.code}", e.g. {self.department.code}101.',
-            })
