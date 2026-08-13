@@ -33,18 +33,18 @@ class Grade(BaseModel):
     )
     ca1_score = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('0.00'),
-        validators=[MinValueValidator(0), MaxValueValidator(15)],
-        help_text='First continuous assessment, out of 15.',
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text='First continuous assessment, out of 20.',
     )
     ca2_score = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('0.00'),
-        validators=[MinValueValidator(0), MaxValueValidator(15)],
-        help_text='Second continuous assessment, out of 15.',
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text='Second continuous assessment, out of 20.',
     )
     exam_score = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('0.00'),
-        validators=[MinValueValidator(0), MaxValueValidator(70)],
-        help_text='Examination score, out of 70.',
+        validators=[MinValueValidator(0), MaxValueValidator(60)],
+        help_text='Examination score, out of 60.',
     )
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
     submitted_at = models.DateTimeField(null=True, blank=True)
@@ -68,7 +68,7 @@ class Grade(BaseModel):
 
     @property
     def ca_score(self):
-        """Combined CA1 + CA2, out of 30 - kept as a read-only property so
+        """Combined CA1 + CA2, out of 40 - kept as a read-only property so
         anything computing off the total (grade_band, broadsheets, admin
         list_display) doesn't need to know about the CA1/CA2 split.
         """
