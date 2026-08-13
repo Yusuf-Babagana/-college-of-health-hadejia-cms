@@ -145,14 +145,30 @@ class HODDashboardView(RoleRequiredMixin, TemplateView):
                 lecturer.current_offering_count = workload[lecturer.id]['count']
                 lecturer.current_units = workload[lecturer.id]['units']
 
+            # FR: an HOD who is personally assigned to teach a course (via
+            # Department's "Assign Courses" screen, same as any lecturer)
+            # needs their own allocated offerings surfaced on their
+            # dashboard - not just the department-wide catalog/oversight
+            # views above. Uses the same lecturer_profile-scoped query as
+            # apps.results.selectors.get_offerings_for_lecturer, so what's
+            # shown here always matches what "My Courses" -> class list ->
+            # grade entry (results app) actually lets them act on.
+            my_offerings = CourseOffering.objects.filter(
+                lecturer=lecturer_profile,
+            ).select_related('course', 'semester', 'semester__session').order_by(
+                '-semester__session__name', 'course__code',
+            )
+
             context['department'] = department
             context['level_states'] = get_level_semester_states()
             context['department_lecturers'] = department_lecturers
             context['department_courses'] = department_courses
             context['department_students'] = department_students
+            context['my_offerings'] = my_offerings
             context['total_lecturers'] = len(department_lecturers)
             context['total_courses'] = department_courses.count()
             context['total_students'] = department_students.count()
+            context['total_my_offerings'] = my_offerings.count()
             context['total_credit_units'] = (
                 department_courses.aggregate(total=Sum('credit_units'))['total'] or 0
             )

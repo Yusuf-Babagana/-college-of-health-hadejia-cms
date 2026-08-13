@@ -26,7 +26,49 @@
     {% include 'partials/_stat_card.html' with icon='bi-person-badge' label='Department Lecturers' value=total_lecturers %}
     {% include 'partials/_stat_card.html' with icon='bi-mortarboard-fill' label='Department Students' value=total_students %}
     {% include 'partials/_stat_card.html' with icon='bi-journal-bookmark-fill' label='Courses Offered' value=total_courses %}
-    {% include 'partials/_stat_card.html' with icon='bi-collection-fill' label='Total Credit Units' value=total_credit_units %}
+    {% include 'partials/_stat_card.html' with icon='bi-easel2-fill' label='Your Allocated Courses' value=total_my_offerings %}
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-easel2-fill me-2 text-brand"></i>Your Allocated Courses</span>
+      <a href="{% url 'results:lecturer_offerings' %}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-journal-check me-1"></i> Go to My Courses
+      </a>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Semester</th>
+            <th>Registered</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for offering in my_offerings %}
+          <tr>
+            <td><span class="badge badge-teal">{{ offering.course.code }}</span></td>
+            <td>{{ offering.course.title }}</td>
+            <td class="text-muted small">{{ offering.semester }}</td>
+            <td>{{ offering.registered_count }}</td>
+            <td>
+              <a href="{% url 'results:class_list' offering.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-people-fill"></i> Class List
+              </a>
+              <a href="{% url 'results:grade_entry' offering.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil-square"></i> Grades
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="text-center text-muted py-3">You haven't been allocated any course to teach.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="row g-3 mb-4">
@@ -99,6 +141,7 @@
 <div class="card shadow-sm">
   <div class="card-header bg-transparent"><i class="bi bi-link-45deg me-2 text-brand"></i>Quick Links</div>
   <div class="list-group list-group-flush">
+    <a href="{% url 'results:lecturer_offerings' %}" class="list-group-item list-group-item-action">My Courses (Allocated to You)</a>
     <a href="{% url 'courses:course_offering_list' %}" class="list-group-item list-group-item-action">Assign Courses to Lecturers</a>
     <a href="{% url 'students:department_student_list' %}" class="list-group-item list-group-item-action">Department Students</a>
     <a href="{% url 'courses:department_registrations' %}" class="list-group-item list-group-item-action">Course Registration Oversight</a>
