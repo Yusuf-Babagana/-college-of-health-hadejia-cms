@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -66,3 +67,10 @@ class Course(BaseModel):
     def clean(self):
         if self.code:
             self.code = self.code.strip().upper()
+
+        if self.programme_id and self.level not in self.programme.levels:
+            raise ValidationError({
+                'level': f'{self.programme.name} only runs {self.programme.duration_levels} level(s) '
+                         f'({", ".join(str(lv) for lv in self.programme.levels)}) - '
+                         f'{self.get_level_display()} is outside that range.',
+            })

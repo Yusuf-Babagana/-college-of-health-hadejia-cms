@@ -1,0 +1,68 @@
+{% for entry in course_tree %}
+<details class="cohst-tree-node mb-2" {% if forloop.first %}open{% endif %}>
+  <summary class="fw-semibold">
+    {% if entry.programme %}
+      {{ entry.programme.name }} <span class="text-muted small">({{ entry.programme.short_code }})</span>
+    {% else %}
+      <span class="text-muted">No Programme Assigned</span>
+    {% endif %}
+  </summary>
+  <div class="ps-3 mt-2">
+    {% for level in entry.levels %}
+    <details class="cohst-tree-node mb-2">
+      <summary>{{ level.label }}</summary>
+      <div class="ps-3 mt-2">
+        {% for sem in level.semesters %}
+        <details class="cohst-tree-node mb-2">
+          <summary>{{ sem.label }} <span class="badge bg-light text-dark border">{{ sem.courses|length }}</span></summary>
+          <div class="ps-3 mt-2">
+            {% if sem.courses %}
+              <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle">
+                  <tbody>
+                    {% for course in sem.courses %}
+                    <tr>
+                      <td><span class="badge badge-teal">{{ course.code }}</span></td>
+                      <td>{{ course.title }}</td>
+                      <td class="text-muted small">{{ course.credit_units }} unit{{ course.credit_units|pluralize }}</td>
+                      {% if show_actions %}
+                      <td class="text-end">
+                        {% if course.current_offering %}
+                          <span class="small text-muted me-2">
+                            {% if course.current_offering.lecturer %}
+                              {{ course.current_offering.lecturer.user.get_full_name }}
+                            {% else %}
+                              <span class="text-warning">Unassigned lecturer</span>
+                            {% endif %}
+                          </span>
+                          <a href="{% url 'courses:course_offering_update' course.current_offering.pk %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil-square"></i> Manage
+                          </a>
+                        {% else %}
+                          <a href="{% url 'courses:course_offering_create' %}?course={{ course.pk }}" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-plus-circle"></i> Assign
+                          </a>
+                        {% endif %}
+                      </td>
+                      {% endif %}
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-muted small mb-0">No courses yet for this semester.</p>
+            {% endif %}
+          </div>
+        </details>
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+</details>
+{% empty %}
+  <p class="text-muted small mb-0">
+    No programmes set up for this department yet. Add one under System Admin &rarr; Programmes and assign it to this department.
+  </p>
+{% endfor %}

@@ -220,3 +220,40 @@ a {
     z-index: 1039;
   }
 }
+
+/* Collapsible Programme -> Level -> Semester -> Courses tree (HOD
+   dashboard, course allocation). Plain <details>/<summary> - no JS
+   wiring needed, and native nesting sidesteps unique-ID bookkeeping
+   that nested Bootstrap accordions would otherwise require. */
+.cohst-tree-node {
+  border-left: 2px solid var(--border-color);
+  padding-left: 0.75rem;
+}
+
+.cohst-tree-node > summary {
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.375rem;
+  list-style: none;
+}
+
+.cohst-tree-node > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cohst-tree-node > summary::before {
+  content: '\25B8';
+  display: inline-block;
+  margin-right: 0.4rem;
+  transition: transform 0.15s ease-in-out;
+  color: var(--text-muted);
+}
+
+.cohst-tree-node[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.cohst-tree-node > summary:hover {
+  background-color: var(--bg-surface-muted);
+}
+}

@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, ListView, UpdateView, View
+from django.views.generic import CreateView, ListView, TemplateView, UpdateView, View
 
 from apps.core.constants import Role
 from apps.core.mixins import PaginatedListMixin, RoleRequiredMixin
@@ -101,6 +101,37 @@ class HODCourseOfferingMixin(RoleRequiredMixin):
         return self.request.user.role == Role.SUPER_ADMIN
 
 
+class CourseAllocationView(HODCourseOfferingMixin, TemplateView):
+    """FR: course allocation browsed Programme -> Level -> Semester ->
+    Courses, rather than picking a course out of one flat list - each
+    course shows its already-assigned lecturer (Manage) or an Assign
+    button that jumps to Assign Course with the course pre-selected.
+    Super Admin picks a department first, same as the other oversight
+    screens, since their account isn't tied to one department.
+    """
+    template_name = 'courses/course_allocation.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        department = self.get_department()
+        is_overseer = self.is_overseer()
+        context['is_overseer'] = is_overseer
+
+        if is_overseer:
+            context['departments'] = get_active_departments()
+            department_id = self.request.GET.get('department')
+            context['current_department'] = department_id or ''
+            department = get_active_departments().filter(pk=department_id).first() if department_id else None
+
+        context['department'] = department
+        if department:
+            current_offerings = selectors.get_current_offerings_for_department(department)
+            context['course_tree'] = selectors.get_department_course_tree(
+                department, current_offerings_by_key=current_offerings,
+            )
+        return context
+
+
 class CourseOfferingListView(HODCourseOfferingMixin, PaginatedListMixin, ListView):
     template_name = 'courses/course_offering_list.html'
     context_object_name = 'offerings'
@@ -154,6 +185,16 @@ class CourseOfferingCreateView(HODCourseOfferingMixin, CreateView):
             )
             return redirect('courses:course_offering_list')
         return super().dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        # Pre-select the course when arriving from the Allocate Courses
+        # tree ("Assign" on a specific course) instead of the plain
+        # "Assign Course" link, which starts blank.
+        initial = super().get_initial()
+        course_id = self.request.GET.get('course')
+        if course_id:
+            initial['course'] = course_id
+        return initial
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()

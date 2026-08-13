@@ -118,6 +118,7 @@ class HODDashboardView(RoleRequiredMixin, TemplateView):
 
         from apps.academics.selectors import get_current_semesters, get_level_semester_states
         from apps.courses.models import CourseOffering
+        from apps.courses.selectors import get_department_course_tree
         from apps.students.selectors import get_student_list
 
         context = super().get_context_data(**kwargs)
@@ -131,6 +132,7 @@ class HODDashboardView(RoleRequiredMixin, TemplateView):
             )
             department_courses = department.courses.order_by('code')
             department_students = get_student_list(department=department.pk)
+            course_tree = get_department_course_tree(department)
 
             current_semesters = get_current_semesters()
             workload = {lecturer.id: {'count': 0, 'units': 0} for lecturer in department_lecturers}
@@ -160,6 +162,7 @@ class HODDashboardView(RoleRequiredMixin, TemplateView):
             )
 
             context['department'] = department
+            context['course_tree'] = course_tree
             context['level_states'] = get_level_semester_states()
             context['department_lecturers'] = department_lecturers
             context['department_courses'] = department_courses

@@ -10,6 +10,7 @@ urlpatterns = [
     path('<uuid:pk>/edit/', views.CourseUpdateView.as_view(), name='course_update'),
     path('<uuid:pk>/archive-toggle/', views.CourseArchiveToggleView.as_view(), name='course_archive_toggle'),
 
+    path('allocate/', views.CourseAllocationView.as_view(), name='course_allocation'),
     path('offerings/', views.CourseOfferingListView.as_view(), name='course_offering_list'),
     path('offerings/create/', views.CourseOfferingCreateView.as_view(), name='course_offering_create'),
     path('offerings/<uuid:pk>/edit/', views.CourseOfferingUpdateView.as_view(), name='course_offering_update'),

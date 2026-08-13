@@ -71,69 +71,49 @@
     </div>
   </div>
 
-  <div class="row g-3 mb-4">
-    <div class="col-lg-6">
-      <div class="card shadow-sm h-100">
-        <div class="card-header bg-transparent"><i class="bi bi-people-fill me-2 text-brand"></i>Staff Directory &amp; Current Workload</div>
-        <div class="table-responsive">
-          <table class="table table-sm table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Name</th>
-                <th>Qualification</th>
-                <th>Courses</th>
-                <th>Units</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for lecturer in department_lecturers %}
-              <tr>
-                <td>{{ lecturer.user.get_full_name }}</td>
-                <td>{{ lecturer.qualification|default:'—' }}</td>
-                <td>{{ lecturer.current_offering_count }}</td>
-                <td>{{ lecturer.current_units }}</td>
-                <td>
-                  {% if department.hod_id == lecturer.id %}
-                    <span class="badge badge-teal">HOD</span>
-                  {% endif %}
-                </td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="5" class="text-center text-muted py-3">No lecturers in this department yet.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-transparent"><i class="bi bi-people-fill me-2 text-brand"></i>Staff Directory &amp; Current Workload</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th>
+            <th>Qualification</th>
+            <th>Courses</th>
+            <th>Units</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lecturer in department_lecturers %}
+          <tr>
+            <td>{{ lecturer.user.get_full_name }}</td>
+            <td>{{ lecturer.qualification|default:'—' }}</td>
+            <td>{{ lecturer.current_offering_count }}</td>
+            <td>{{ lecturer.current_units }}</td>
+            <td>
+              {% if department.hod_id == lecturer.id %}
+                <span class="badge badge-teal">HOD</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="text-center text-muted py-3">No lecturers in this department yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+  </div>
 
-    <div class="col-lg-6">
-      <div class="card shadow-sm h-100">
-        <div class="card-header bg-transparent"><i class="bi bi-journal-bookmark-fill me-2 text-brand"></i>Department Courses</div>
-        <div class="table-responsive">
-          <table class="table table-sm table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Code</th>
-                <th>Title</th>
-                <th>Units</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for course in department_courses %}
-              <tr>
-                <td><span class="badge badge-teal">{{ course.code }}</span></td>
-                <td>{{ course.title }}</td>
-                <td>{{ course.credit_units }}</td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="3" class="text-center text-muted py-3">No courses in this department yet.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-diagram-3-fill me-2 text-brand"></i>Department Programmes</span>
+      <a href="{% url 'courses:course_allocation' %}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-clipboard-check me-1"></i> Allocate Courses
+      </a>
+    </div>
+    <div class="card-body">
+      {% include 'courses/partials/_course_tree.html' %}
     </div>
   </div>
 {% endif %}
@@ -142,7 +122,8 @@
   <div class="card-header bg-transparent"><i class="bi bi-link-45deg me-2 text-brand"></i>Quick Links</div>
   <div class="list-group list-group-flush">
     <a href="{% url 'results:lecturer_offerings' %}" class="list-group-item list-group-item-action">My Courses (Allocated to You)</a>
-    <a href="{% url 'courses:course_offering_list' %}" class="list-group-item list-group-item-action">Assign Courses to Lecturers</a>
+    <a href="{% url 'courses:course_allocation' %}" class="list-group-item list-group-item-action">Allocate Courses (by Programme)</a>
+    <a href="{% url 'courses:course_offering_list' %}" class="list-group-item list-group-item-action">All Course Offerings</a>
     <a href="{% url 'students:department_student_list' %}" class="list-group-item list-group-item-action">Department Students</a>
     <a href="{% url 'courses:department_registrations' %}" class="list-group-item list-group-item-action">Course Registration Oversight</a>
     <a href="{% url 'results:grade_review_list' %}" class="list-group-item list-group-item-action">Review Grades</a>

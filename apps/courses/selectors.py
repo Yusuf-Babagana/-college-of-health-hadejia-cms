@@ -103,6 +103,115 @@ def get_class_list_for_offering(course_offering):
     ).select_related('student', 'student__user').order_by('student__matric_number')
 
 
+def get_department_course_tree(department, *, current_offerings_by_key=None):
+    """Every course in a department, grouped Programme -> Level ->
+    Semester, for the HOD dashboard and the course-allocation screen -
+    replaces a flat course list with the structure the college actually
+    plans around (FR: "HOD should see Programme first, Level, Semester
+    then the Courses").
+
+    Every level a programme runs (per Programme.duration_levels) and
+    both semesters are always included, even with zero courses yet, so
+    the tree reads as a skeleton to fill in rather than only showing
+    what already exists - e.g. a 2-level Certificate always shows 100 &
+    200 Level, never 300+.
+
+    Courses with no Programme set (pre-existing data, or a course that
+    deliberately isn't tied to one) are grouped under a trailing "No
+    Programme" bucket instead of silently disappearing from the tree,
+    covering only the levels that actually have such courses.
+
+    ``current_offerings_by_key``, if given, is a ``{course_id: CourseOffering}``
+    map (see get_current_offerings_for_department) used to annotate each
+    course with ``.current_offering`` - the allocation screen uses this
+    to show "Assign" vs. the already-assigned lecturer without a second
+    query per course.
+    """
+    from apps.admissions.models import Programme
+    from apps.core.constants import Level, SemesterName
+
+    courses = list(
+        Course.objects.filter(department=department).select_related('programme').order_by('code')
+    )
+
+    by_programme = {}
+    no_programme_courses = []
+    for course in courses:
+        if current_offerings_by_key is not None:
+            course.current_offering = current_offerings_by_key.get(course.id)
+        if course.programme_id:
+            by_programme.setdefault(course.programme_id, []).append(course)
+        else:
+            no_programme_courses.append(course)
+
+    level_labels = dict(Level.choices)
+
+    def build_levels(course_list, level_values):
+        levels = []
+        for level_value in level_values:
+            level_courses = [c for c in course_list if c.level == level_value]
+            semesters = [
+                {
+                    'value': sem_value,
+                    'label': sem_label,
+                    'courses': [c for c in level_courses if c.semester_name == sem_value],
+                }
+                for sem_value, sem_label in SemesterName.choices
+            ]
+            levels.append({'value': level_value, 'label': level_labels[level_value], 'semesters': semesters})
+        return levels
+
+    # Every active programme under the department is shown, not just
+    # ones that already have a course - a freshly-created programme
+    # still needs its empty Level/Semester skeleton visible so the HOD
+    # has somewhere to start adding courses.
+    programmes = Programme.objects.filter(department=department, is_active=True).order_by('name')
+    tree = [
+        {'programme': programme, 'levels': build_levels(by_programme.get(programme.pk, []), programme.levels)}
+        for programme in programmes
+    ]
+
+    if no_programme_courses:
+        present_levels = sorted({c.level for c in no_programme_courses})
+        tree.append({'programme': None, 'levels': build_levels(no_programme_courses, present_levels)})
+
+    return tree
+
+
+def get_current_offerings_for_department(department):
+    """{course_id: CourseOffering} for every course in the department that
+    already has an offering in the semester currently running for its own
+    level (per LevelSemesterState) - i.e. "has this course actually been
+    allocated to a lecturer yet, for the semester it'd be allocated in
+    right now". A course with no LevelSemesterState set for its level, or
+    no offering yet, simply has no entry.
+    """
+    from apps.academics.selectors import get_level_semester_states
+
+    semester_id_by_level = {
+        state.level: state.semester_id for state in get_level_semester_states()
+    }
+    if not semester_id_by_level:
+        return {}
+
+    course_ids_by_level = {}
+    for course in Course.objects.filter(department=department).values('id', 'level'):
+        course_ids_by_level.setdefault(course['level'], []).append(course['id'])
+
+    offerings_by_course_id = {}
+    for level, semester_id in semester_id_by_level.items():
+        course_ids = course_ids_by_level.get(level)
+        if not course_ids:
+            continue
+        offerings = CourseOffering.objects.filter(
+            course_id__in=course_ids, semester_id=semester_id,
+        ).select_related('lecturer', 'lecturer__user')
+        for offering in offerings:
+            offerings_by_course_id[offering.course_id] = offering
+
+    return offerings_by_course_id
+
+
 def get_registrations_for_department(department=None, *, semester=None, status=None):
     """FR-HOD-06: every course registration for offerings in one
     department - the HOD's registration oversight queue. Passing

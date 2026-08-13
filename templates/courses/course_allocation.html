@@ -1,0 +1,58 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Allocate Courses · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'courses:course_offering_list' %}">Course Offerings</a></li>
+  <li class="breadcrumb-item active">Allocate Courses</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h4 class="mb-1">Allocate Courses</h4>
+    {% if department %}
+      <p class="text-muted small mb-0">{{ department.name }} ({{ department.code }})</p>
+    {% endif %}
+  </div>
+  <a href="{% url 'courses:course_offering_list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-journal-check me-1"></i> All Course Offerings
+  </a>
+</div>
+
+{% if is_overseer %}
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <select name="department" class="form-select" onchange="this.form.submit()">
+          <option value="">Choose a department&hellip;</option>
+          {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.name }} ({{ dept.code }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if not department %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    {% if is_overseer %}Choose a department above to see its programmes and courses.
+    {% else %}Your account has no linked department. Contact the ICT Administrator.{% endif %}
+  </div>
+{% else %}
+  <p class="text-muted small mb-3">
+    <i class="bi bi-info-circle me-1"></i>
+    Browse by Programme, then Level, then Semester to find the course you want to allocate.
+    "Assign" launches Assign Course with it already selected; "Manage" edits an existing allocation
+    (change the lecturer/capacity).
+  </p>
+  <div class="card shadow-sm">
+    <div class="card-body">
+      {% include 'courses/partials/_course_tree.html' with show_actions=True %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

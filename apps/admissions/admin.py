@@ -21,9 +21,9 @@ from .models import (
 
 @admin.register(Programme)
 class ProgrammeAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('name', 'short_code', 'department', 'is_active')
+    list_display = ('name', 'short_code', 'department', 'duration_levels', 'is_active')
     list_editable = ('is_active',)
-    list_filter = SoftDeleteAdminMixin.list_filter + ('department',)
+    list_filter = SoftDeleteAdminMixin.list_filter + ('department', 'duration_levels')
     search_fields = ('name', 'short_code')
     autocomplete_fields = ('department',)
 
