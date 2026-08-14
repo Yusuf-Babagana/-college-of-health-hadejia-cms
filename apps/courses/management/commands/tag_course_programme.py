@@ -1,30 +1,34 @@
 """
-One-off data-fixing tool for the exact situation the Master Broadsheet
-gap surfaced: a real course (e.g. CHE113, ANP111) that predates the
-Programme field, or was never tagged, and so is invisible on every
-programme's broadsheet even though students are legitimately
-registered for it.
+One-off data-fixing tool for a course that predates the Programme field,
+or was never tagged, and so is invisible on every programme's Master
+Broadsheet even though students are legitimately registered for it.
+Works purely from whatever course/department/programme codes actually
+exist in the database - it has no built-in notion of any specific
+course or programme.
 
 Usage examples (run on the server, e.g. the PythonAnywhere console):
 
-    # CHE113: primary Programme = Diploma, also cross-listed to Certificate
-    python manage.py tag_course_programme CHE113 \
-        --programme DCH --eligible DCH --eligible CCH
+    # Set a course's primary Programme, and cross-list it to a second one
+    python manage.py tag_course_programme <COURSE_CODE> \
+        --programme <PRIMARY_PROGRAMME_CODE> \
+        --eligible <PRIMARY_PROGRAMME_CODE> --eligible <OTHER_PROGRAMME_CODE>
 
-    # ANP111: first move it to the right department, then tag it
-    python manage.py tag_course_programme ANP111 \
-        --department CHE --programme DCH --eligible CCH
+    # Move a course to the right department first, then tag it
+    python manage.py tag_course_programme <COURSE_CODE> \
+        --department <DEPARTMENT_CODE> --programme <PROGRAMME_CODE>
 
     # Preview only, no changes saved
-    python manage.py tag_course_programme CHE113 --programme DCH --dry-run
+    python manage.py tag_course_programme <COURSE_CODE> --programme <PROGRAMME_CODE> --dry-run
 
 Programme/department are matched by their short_code/code (case
--insensitive) - use `python manage.py shell -c "from apps.admissions.models
-import Programme; [print(p.short_code, p.name) for p in Programme.objects.all()]"`
+-insensitive) - use `python manage.py inspect_course_programme_links`
+(or `python manage.py shell -c "from apps.admissions.models import
+Programme; [print(p.short_code, p.name) for p in Programme.objects.all()]"`)
 first if you're not sure of the exact short_code.
 """
 from django.core.management.base import BaseCommand, CommandError
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 
 
 class Command(BaseCommand):
@@ -94,8 +98,6 @@ class Command(BaseCommand):
                 course.full_clean()
             except DjangoValidationError as exc:
                 raise CommandError(f'Validation failed: {exc.message_dict}')
-            if not dry_run:
-                course.save()
 
         eligible_to_add = []
         for prog_code in options['eligible']:
@@ -107,8 +109,17 @@ class Command(BaseCommand):
             if not course.eligible_programmes.filter(pk=programme.pk).exists():
                 eligible_to_add.append(programme)
 
-        if eligible_to_add and not dry_run:
-            course.eligible_programmes.add(*eligible_to_add)
+        # Every resolution/validation step above only reads and raises -
+        # nothing is written until here, and the FK change (course.save())
+        # plus the M2M change (eligible_programmes.add()) happen together
+        # in one transaction so a failure partway through can't leave the
+        # course half-tagged.
+        if not dry_run and (changes or eligible_to_add):
+            with transaction.atomic():
+                if changes:
+                    course.save()
+                if eligible_to_add:
+                    course.eligible_programmes.add(*eligible_to_add)
 
         self.stdout.write(self.style.SUCCESS(f'Course: {course.code} - {course.title}'))
         if not changes and not eligible_to_add:
