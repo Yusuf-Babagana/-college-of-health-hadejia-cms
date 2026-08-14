@@ -50,12 +50,21 @@ def register_course(*, student, course_offering):
     from apps.core.constants import MAX_CREDIT_UNITS_PER_SEMESTER
     from apps.finance.selectors import is_student_cleared
 
-    from .selectors import get_registered_courses
+    from .selectors import get_registered_courses, is_offering_eligible_for_student
 
     semester = course_offering.semester
 
     if not semester.is_registration_open:
         raise ValidationError('Course registration is not currently open for this semester.')
+
+    # Defense in depth: "Available Courses" only ever renders eligible
+    # offerings, but this is the one place that actually creates a
+    # registration, so it has to re-check independently rather than
+    # trusting whatever offering pk was posted - e.g. a JCHEW student
+    # can't register for a CHEW-only course in the same department just
+    # by knowing/guessing its URL.
+    if not is_offering_eligible_for_student(course_offering, student):
+        raise ValidationError('You are not eligible to register for this course.')
 
     if not is_student_cleared(student, semester.session):
         raise ValidationError('You must clear your outstanding fees before registering courses.')

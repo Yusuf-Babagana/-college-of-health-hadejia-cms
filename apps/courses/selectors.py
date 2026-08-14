@@ -54,6 +54,17 @@ def get_available_offerings_for_student(student, semester):
         handful of departments/programmes should actually narrow it, not
         get overridden by the blanket "everyone" default.
 
+    Within their own department, a student only sees courses that either
+    have no Programme set (a general/unclassified department course) or
+    whose Programme matches their own - a department like Community
+    Health can run several programmes (CHEW, JCHEW, ...) with different
+    curricula, so "in the department" alone isn't eligibility; a CHEW
+    student shouldn't see or register for a JCHEW-only course just
+    because both sit under the same department. If the STUDENT has no
+    Programme assigned yet, this can't be enforced for them - they fall
+    back to seeing every course in their department, same as before
+    Programmes existed, until the Registrar assigns them one.
+
     Computed as two separate queries unioned by pk (rather than one query
     combining multiple M2M lookups with Q/~Q) to avoid Django's usual
     multi-valued-relationship join pitfalls.
@@ -66,9 +77,11 @@ def get_available_offerings_for_student(student, semester):
         course__level=student.level, semester=semester,
     ).exclude(pk__in=registered_offering_ids)
 
-    explicit_eligibility = Q(course__department=student.department) | Q(
-        course__eligible_departments=student.department,
-    )
+    own_department = Q(course__department=student.department)
+    if student.programme_id:
+        own_department &= Q(course__programme__isnull=True) | Q(course__programme_id=student.programme_id)
+
+    explicit_eligibility = own_department | Q(course__eligible_departments=student.department)
     if student.programme_id:
         explicit_eligibility |= Q(course__eligible_programmes=student.programme_id)
     explicit_ids = set(base_qs.filter(explicit_eligibility).values_list('pk', flat=True))
@@ -83,6 +96,39 @@ def get_available_offerings_for_student(student, semester):
     return base_qs.filter(pk__in=explicit_ids | blanket_ids).select_related(
         'course', 'lecturer', 'lecturer__user',
     )
+
+
+def is_offering_eligible_for_student(course_offering, student):
+    """Same eligibility rule as get_available_offerings_for_student,
+    evaluated for one already-known offering rather than a queryset -
+    used as a server-side check in services.register_course so a direct
+    POST can't register a student for a course their programme, level,
+    or department doesn't actually make them eligible for, regardless of
+    what the "Available Courses" page happened to render.
+    """
+    course = course_offering.course
+
+    if course.level != student.level:
+        return False
+
+    if course.department_id == student.department_id:
+        if not student.programme_id or not course.programme_id or course.programme_id == student.programme_id:
+            return True
+
+    if course.eligible_departments.filter(pk=student.department_id).exists():
+        return True
+
+    if student.programme_id and course.eligible_programmes.filter(pk=student.programme_id).exists():
+        return True
+
+    if (
+        course.department.is_general_studies
+        and not course.eligible_departments.exists()
+        and not course.eligible_programmes.exists()
+    ):
+        return True
+
+    return False
 
 
 def get_registered_courses(student, *, semester=None):
