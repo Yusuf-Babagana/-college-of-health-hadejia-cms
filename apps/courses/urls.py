@@ -22,6 +22,7 @@ urlpatterns = [
 
     path('registrations/', views.DepartmentRegistrationListView.as_view(), name='department_registrations'),
     path('registrations/<uuid:pk>/cancel/', views.HODCancelRegistrationView.as_view(), name='cancel_registration'),
+    path('registrations/conflicts/', views.RegistrationConflictsView.as_view(), name='registration_conflicts'),
 
     path('available/', views.AvailableCourseListView.as_view(), name='available_courses'),
     path('available/<uuid:pk>/register/', views.RegisterCourseView.as_view(), name='register_course'),

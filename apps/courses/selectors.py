@@ -275,3 +275,45 @@ def get_registrations_for_department(department=None, *, semester=None, status=N
     if status:
         qs = qs.filter(status=status)
     return qs.order_by('-created_at')
+
+
+def get_cross_programme_registration_conflicts(*, department=None):
+    """Diagnostic report: students actively registered under courses
+    tagged with more than one distinct Programme within the same
+    department - a person should only be on one programme (see
+    is_offering_eligible_for_student), so this is almost always leftover
+    from before Programmes existed, or from before the student had one
+    assigned to their own record. Not auto-fixed here - staff need to
+    look at each case and decide which registration is the mistake (drop
+    it via the department's Course Registration Oversight screen, or
+    Django admin), since there's no way to know that automatically.
+
+    Passing department=None (Exam Officer/Registrar/Super Admin
+    oversight) checks every department; a specific department scopes it
+    to just that department's students, for the HOD view.
+    """
+    qs = CourseRegistration.objects.filter(
+        status=CourseRegistration.Status.REGISTERED,
+        course_offering__course__programme__isnull=False,
+    ).select_related(
+        'student', 'student__user', 'student__department',
+        'course_offering__course__programme', 'course_offering__semester', 'course_offering__semester__session',
+    )
+    if department:
+        qs = qs.filter(student__department=department)
+
+    by_student = {}
+    for reg in qs:
+        by_student.setdefault(reg.student_id, {'student': reg.student, 'registrations': []})
+        by_student[reg.student_id]['registrations'].append(reg)
+
+    conflicts = []
+    for entry in by_student.values():
+        programmes = {reg.course_offering.course.programme for reg in entry['registrations']}
+        if len(programmes) > 1:
+            entry['programmes'] = sorted(programmes, key=lambda p: p.name)
+            entry['registrations'].sort(key=lambda r: r.course_offering.course.code)
+            conflicts.append(entry)
+
+    conflicts.sort(key=lambda entry: entry['student'].matric_number)
+    return conflicts

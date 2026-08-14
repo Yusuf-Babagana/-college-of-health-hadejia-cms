@@ -1,0 +1,85 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Registration Conflicts · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Registration Conflicts</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Cross-Programme Registration Conflicts</h4>
+<p class="text-muted small mb-3">
+  <i class="bi bi-info-circle"></i> A student should only be on one Programme. This lists anyone actively
+  registered under courses from more than one Programme in the same department - almost always leftover from
+  before Programmes were assigned to their courses or their own record, not something to happen going forward.
+  This is a read-only report: to fix one, drop the wrong registration from
+  <a href="{% url 'courses:department_registrations' %}">Course Registration Oversight</a> (or Django admin).
+</p>
+
+{% if not is_hod %}
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <select name="department" class="form-select" onchange="this.form.submit()">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.name }} ({{ dept.code }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+</div>
+{% elif not department %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Your account has no linked department. Contact the ICT Administrator.
+  </div>
+{% endif %}
+
+{% if is_hod and not department %}
+{% elif not conflicts %}
+  <div class="alert alert-success">
+    <i class="bi bi-check-circle-fill me-1"></i>
+    No cross-programme registration conflicts found{% if department %} in {{ department.name }}{% endif %}.
+  </div>
+{% else %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    {{ conflicts|length }} student{{ conflicts|length|pluralize }} found registered across more than one programme.
+  </div>
+
+  {% for entry in conflicts %}
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+      <span>
+        <span class="badge badge-teal">{{ entry.student.matric_number }}</span>
+        {{ entry.student.user.get_full_name }}
+        <span class="text-muted small">({{ entry.student.department.code }})</span>
+      </span>
+      <span class="small text-muted">
+        Registered across: {% for prog in entry.programmes %}{{ prog.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+      </span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Course</th>
+            <th>Programme</th>
+            <th>Semester</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reg in entry.registrations %}
+          <tr>
+            <td><span class="badge badge-teal">{{ reg.course_offering.course.code }}</span> {{ reg.course_offering.course.title }}</td>
+            <td>{{ reg.course_offering.course.programme.name }}</td>
+            <td class="text-muted small">{{ reg.course_offering.semester }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+{% endblock %}

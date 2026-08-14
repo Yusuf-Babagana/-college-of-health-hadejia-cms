@@ -438,3 +438,43 @@ class RegistrationSlipPDFView(StudentCourseRoleMixin, View):
             },
             filename=f'registration-slip-{student_profile.matric_number}.pdf'.replace('/', '-'),
         )
+
+
+class RegistrationConflictsView(RoleRequiredMixin, TemplateView):
+    """Diagnostic report: students registered under courses from more
+    than one Programme - see get_cross_programme_registration_conflicts.
+    Read-only; actually dropping the wrong registration happens on the
+    existing Course Registration Oversight screen (or Django admin), not
+    here, since there's no way to know automatically which registration
+    is the mistake.
+    """
+    template_name = 'courses/registration_conflicts.html'
+    allowed_roles = (Role.EXAM_OFFICER, Role.REGISTRAR, Role.HOD, Role.SUPER_ADMIN)
+
+    def get_department(self):
+        if self.request.user.role != Role.HOD:
+            return None
+        lecturer_profile = getattr(self.request.user, 'lecturer_profile', None)
+        return lecturer_profile.department if lecturer_profile else None
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        is_hod = self.request.user.role == Role.HOD
+        context['is_hod'] = is_hod
+
+        if is_hod:
+            department = self.get_department()
+            context['department'] = department
+        else:
+            department_id = self.request.GET.get('department')
+            department = get_active_departments().filter(pk=department_id).first() if department_id else None
+            context['departments'] = get_active_departments()
+            context['current_department'] = department_id or ''
+            context['department'] = department
+
+        if is_hod and not department:
+            context['conflicts'] = []
+        else:
+            context['conflicts'] = selectors.get_cross_programme_registration_conflicts(department=department)
+
+        return context
