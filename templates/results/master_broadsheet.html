@@ -6,18 +6,22 @@
 {% block content %}
 <h4 class="mb-3">Master Broadsheet</h4>
 <p class="text-muted small mb-3">
-  <i class="bi bi-info-circle"></i> The pivoted, academic-board-ready result sheet for one department, level, and
-  semester - every registered student as a row, every course as a column.
+  <i class="bi bi-info-circle"></i> The pivoted, academic-board-ready result sheet for one programme, level, and
+  semester - every registered student as a row, every course as a column. A department can run several programmes
+  with different curricula (e.g. Community Health's CHEW and JCHEW) - pick the programme first; the Level list
+  narrows to only the levels that programme actually runs.
 </p>
 
 <div class="card shadow-sm mb-3">
   <div class="card-body">
     <form method="get" class="row g-2 align-items-center">
-      <div class="col-md-3">
-        <select name="department" class="form-select" required>
-          <option value="">Select Department</option>
-          {% for dept in departments %}
-            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.name }}</option>
+      <div class="col-md-4">
+        <select name="programme" class="form-select" required>
+          <option value="">Select Programme</option>
+          {% for prog in programmes %}
+            <option value="{{ prog.pk }}" {% if prog.pk|stringformat:'s' == current_programme %}selected{% endif %}>
+              {{ prog.name }}{% if prog.department %} ({{ prog.department.code }}){% endif %}
+            </option>
           {% endfor %}
         </select>
       </div>
@@ -29,7 +33,7 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
         <select name="semester" class="form-select" required>
           <option value="">Select Semester</option>
           {% for sem in semesters %}
@@ -43,15 +47,21 @@
         <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i> Generate</button>
       </div>
     </form>
+    {% if selected_programme %}
+      <p class="text-muted small mt-2 mb-0">
+        {{ selected_programme.name }} runs {{ selected_programme.duration_levels }} level(s):
+        {% for lv in selected_programme.levels %}{{ lv }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+      </p>
+    {% endif %}
   </div>
 </div>
 
 {% if broadsheet %}
   <div class="d-flex justify-content-between align-items-center mb-2">
     <p class="text-muted mb-0">
-      {{ selected_department.name }} &middot; {{ selected_level }} Level &middot; {{ selected_semester }}
+      {{ selected_programme.name }} &middot; {{ selected_level }} Level &middot; {{ selected_semester }}
     </p>
-    <a href="{% url 'results:master_broadsheet_export' %}?department={{ selected_department.pk }}&level={{ selected_level }}&semester={{ selected_semester.pk }}"
+    <a href="{% url 'results:master_broadsheet_export' %}?programme={{ selected_programme.pk }}&level={{ selected_level }}&semester={{ selected_semester.pk }}"
        class="btn btn-outline-primary btn-sm">
       <i class="bi bi-download me-1"></i> Export CSV
     </a>

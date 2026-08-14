@@ -532,37 +532,49 @@ class BroadsheetCSVExportView(ExamOfficerRoleMixin, View):
 
 
 class MasterBroadsheetView(ExamOfficerRoleMixin, TemplateView):
-    """FR-EXM-06: the pivoted master broadsheet for one department+level
+    """FR-EXM-06: the pivoted master broadsheet for one programme+level
     +semester, ready for the Academic Board - viewable here, exportable
     as CSV below.
+
+    Scoped by Programme, not Department: a department (e.g. Community
+    Health) can run several programmes with different curricula (CHEW,
+    JCHEW, ...), so the level dropdown is narrowed to whatever levels the
+    selected programme actually runs (Programme.levels) once one is
+    chosen - a 2-level Certificate programme never offers a 300 Level
+    option.
     """
     template_name = 'results/master_broadsheet.html'
 
     def get_context_data(self, **kwargs):
         from apps.academics.models import Semester
+        from apps.admissions.models import Programme
         from apps.core.constants import Level
-        from apps.departments.selectors import get_active_departments
 
         context = super().get_context_data(**kwargs)
-        context['departments'] = get_active_departments()
+        context['programmes'] = Programme.objects.filter(is_active=True).select_related('department').order_by('name')
         context['semesters'] = Semester.objects.select_related('session')
-        context['level_choices'] = Level.choices
-        context['current_department'] = self.request.GET.get('department', '')
+        context['current_programme'] = self.request.GET.get('programme', '')
         context['current_semester'] = self.request.GET.get('semester', '')
         context['current_level'] = self.request.GET.get('level', '')
 
-        department_id = self.request.GET.get('department')
+        programme_id = self.request.GET.get('programme')
         semester_id = self.request.GET.get('semester')
         level = self.request.GET.get('level')
-        if department_id and semester_id and level:
-            from apps.departments.models import Department
 
-            department = get_object_or_404(Department, pk=department_id)
+        selected_programme = None
+        if programme_id:
+            selected_programme = get_object_or_404(Programme, pk=programme_id)
+            context['selected_programme'] = selected_programme
+            level_labels = dict(Level.choices)
+            context['level_choices'] = [(lv, level_labels[lv]) for lv in selected_programme.levels]
+        else:
+            context['level_choices'] = Level.choices
+
+        if selected_programme and semester_id and level:
             semester = get_object_or_404(Semester, pk=semester_id)
             context['broadsheet'] = selectors.get_master_broadsheet(
-                department=department, semester=semester, level=level,
+                programme=selected_programme, semester=semester, level=level,
             )
-            context['selected_department'] = department
             context['selected_semester'] = semester
             context['selected_level'] = int(level)
 
@@ -578,15 +590,15 @@ class MasterBroadsheetExportView(ExamOfficerRoleMixin, View):
         from django.http import HttpResponse
 
         from apps.academics.models import Semester
-        from apps.departments.models import Department
+        from apps.admissions.models import Programme
 
-        department = get_object_or_404(Department, pk=request.GET.get('department'))
+        programme = get_object_or_404(Programme, pk=request.GET.get('programme'))
         semester = get_object_or_404(Semester, pk=request.GET.get('semester'))
         level = request.GET.get('level')
 
-        broadsheet = selectors.get_master_broadsheet(department=department, semester=semester, level=level)
+        broadsheet = selectors.get_master_broadsheet(programme=programme, semester=semester, level=level)
 
-        filename = f'broadsheet-{department.code}-{level}L-{semester}.csv'.replace('/', '-').replace(' ', '-')
+        filename = f'broadsheet-{programme.short_code}-{level}L-{semester}.csv'.replace('/', '-').replace(' ', '-')
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
 

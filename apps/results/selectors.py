@@ -177,17 +177,25 @@ def get_collated_grades(*, department=None, semester=None, status=None):
     )
 
 
-def get_master_broadsheet(*, department, semester, level):
+def get_master_broadsheet(*, programme, semester, level):
     """FR-EXM-06: the pivoted academic-board broadsheet - one row per
-    student, one column per course offered to that department+level in
+    student, one column per course offered to that programme+level in
     that semester, with a semester GPA in the final column.
+
+    Scoped by Programme rather than Department: a department like
+    Community Health can run several programmes (e.g. CHEW, JCHEW) whose
+    curricula differ, so "every course in the department at this level"
+    would mix courses that don't actually belong together on one board
+    document. Only courses explicitly tagged with this Programme appear -
+    a course still sitting in the "No Programme" bucket won't show up in
+    any Master Broadsheet until it's assigned one.
     """
     from apps.courses.models import CourseOffering, CourseRegistration
     from apps.students.models import Student
 
     offerings = list(
         CourseOffering.objects.filter(
-            course__department=department, course__level=level, semester=semester,
+            course__programme=programme, course__level=level, semester=semester,
         ).select_related('course').order_by('course__code')
     )
     courses = [offering.course for offering in offerings]
