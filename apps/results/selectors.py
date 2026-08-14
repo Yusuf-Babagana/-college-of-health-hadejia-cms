@@ -186,14 +186,20 @@ def get_master_broadsheet(*, programme, semester, level):
     Community Health can run several programmes (e.g. CHEW, JCHEW) whose
     curricula differ, so "every course in the department at this level"
     would mix courses that don't actually belong together on one board
-    document. A course counts as this programme's either by having it as
-    its primary Programme, or by cross-listing it via eligible_programmes
-    (same rule apps.courses.selectors.is_offering_eligible_for_student
-    uses for registration) - e.g. a shared GST course taken by several
-    programmes appears on every one of their broadsheets, not just
-    whichever programme happens to be set as its single "owner". A
-    course still sitting in the "No Programme" bucket (primary Programme
-    blank, and not cross-listed to this one either) won't show up in any
+    document. Mirrors apps.courses.selectors.is_offering_eligible_for_student's
+    priority order, so "who can register" and "who's on the broadsheet"
+    never disagree about the same course - a course counts as this
+    programme's when either:
+      - it's explicitly tagged this Programme (primary, or cross-listed
+        via eligible_programmes) - e.g. a course shared by exactly a
+        couple of programmes appears on each of theirs; or
+      - it has no explicit Programme/eligible_programmes tagging at all,
+        AND its department is flagged General Studies - a truly
+        college-wide course (Use of English, Library, ...) shouldn't
+        need per-programme tagging maintained on it, since by
+        definition every programme's students take it.
+    A course still sitting in the "No Programme" bucket under an
+    ordinary (non-General-Studies) department won't show up in any
     Master Broadsheet until it's tagged one way or the other.
     """
     from django.db.models import Q
@@ -201,11 +207,23 @@ def get_master_broadsheet(*, programme, semester, level):
     from apps.courses.models import CourseOffering, CourseRegistration
     from apps.students.models import Student
 
-    offerings = list(
-        CourseOffering.objects.filter(
+    base_qs = CourseOffering.objects.filter(course__level=level, semester=semester)
+
+    explicit_ids = set(
+        base_qs.filter(
             Q(course__programme=programme) | Q(course__eligible_programmes=programme),
-            course__level=level, semester=semester,
-        ).select_related('course').order_by('course__code').distinct()
+        ).values_list('pk', flat=True)
+    )
+    blanket_ids = set(
+        base_qs.filter(course__department__is_general_studies=True)
+        .filter(course__programme__isnull=True)
+        .exclude(course__eligible_programmes__isnull=False)
+        .values_list('pk', flat=True)
+    )
+
+    offerings = list(
+        base_qs.filter(pk__in=explicit_ids | blanket_ids)
+        .select_related('course').order_by('course__code')
     )
     courses = [offering.course for offering in offerings]
 
