@@ -201,6 +201,19 @@ def get_master_broadsheet(*, programme, semester, level):
     A course still sitting in the "No Programme" bucket under an
     ordinary (non-General-Studies) department won't show up in any
     Master Broadsheet until it's tagged one way or the other.
+
+    Rows (students) are NOT everyone who happens to be registered for
+    one of the columns above - that would put a Certificate student on
+    the Diploma sheet just because they share one common course. Rows
+    are the students who are both registered for something in this set
+    AND whose OWN Programme (Student.programme) is this one - a shared
+    course still appears as a column on every programme that shares it,
+    but which specific students show up as rows on each programme's
+    sheet is decided by their own enrollment, never by which course
+    they happened to take. A student with no Programme assigned on
+    their own record won't appear on ANY Master Broadsheet - see
+    apps.students.management.commands.assign_student_programme for
+    bulk-assigning existing students.
     """
     from django.db.models import Q
 
@@ -227,10 +240,12 @@ def get_master_broadsheet(*, programme, semester, level):
     )
     courses = [offering.course for offering in offerings]
 
-    student_ids = CourseRegistration.objects.filter(
+    registered_student_ids = CourseRegistration.objects.filter(
         course_offering__in=offerings, status=CourseRegistration.Status.REGISTERED,
     ).values_list('student_id', flat=True).distinct()
-    students = Student.objects.filter(pk__in=student_ids).select_related('user').order_by('matric_number')
+    students = Student.objects.filter(
+        pk__in=registered_student_ids, programme=programme,
+    ).select_related('user').order_by('matric_number')
 
     # Only HOD-approved-or-published grades belong on a document meant
     # for final academic board ratification - a raw, still-editable
