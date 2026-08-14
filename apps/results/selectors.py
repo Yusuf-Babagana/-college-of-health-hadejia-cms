@@ -186,17 +186,26 @@ def get_master_broadsheet(*, programme, semester, level):
     Community Health can run several programmes (e.g. CHEW, JCHEW) whose
     curricula differ, so "every course in the department at this level"
     would mix courses that don't actually belong together on one board
-    document. Only courses explicitly tagged with this Programme appear -
-    a course still sitting in the "No Programme" bucket won't show up in
-    any Master Broadsheet until it's assigned one.
+    document. A course counts as this programme's either by having it as
+    its primary Programme, or by cross-listing it via eligible_programmes
+    (same rule apps.courses.selectors.is_offering_eligible_for_student
+    uses for registration) - e.g. a shared GST course taken by several
+    programmes appears on every one of their broadsheets, not just
+    whichever programme happens to be set as its single "owner". A
+    course still sitting in the "No Programme" bucket (primary Programme
+    blank, and not cross-listed to this one either) won't show up in any
+    Master Broadsheet until it's tagged one way or the other.
     """
+    from django.db.models import Q
+
     from apps.courses.models import CourseOffering, CourseRegistration
     from apps.students.models import Student
 
     offerings = list(
         CourseOffering.objects.filter(
-            course__programme=programme, course__level=level, semester=semester,
-        ).select_related('course').order_by('course__code')
+            Q(course__programme=programme) | Q(course__eligible_programmes=programme),
+            course__level=level, semester=semester,
+        ).select_related('course').order_by('course__code').distinct()
     )
     courses = [offering.course for offering in offerings]
 
