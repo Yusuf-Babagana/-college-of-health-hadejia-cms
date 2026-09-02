@@ -241,6 +241,12 @@ def get_department_course_tree(department, *, current_offerings_by_key=None):
     level_labels = dict(Level.choices)
 
     def build_levels(course_list, level_values):
+        # Always cover the requested level span, PLUS any level a course
+        # in this bucket is actually tagged with even if it falls outside
+        # that span (e.g. a course mis-levelled past its programme's
+        # duration) - a stray course must still surface in the tree
+        # rather than silently vanish.
+        level_values = sorted(set(level_values) | {c.level for c in course_list})
         levels = []
         for level_value in level_values:
             level_courses = [c for c in course_list if c.level == level_value]
@@ -255,11 +261,28 @@ def get_department_course_tree(department, *, current_offerings_by_key=None):
             levels.append({'value': level_value, 'label': level_labels[level_value], 'semesters': semesters})
         return levels
 
-    # Every active programme under the department is shown, not just
-    # ones that already have a course - a freshly-created programme
-    # still needs its empty Level/Semester skeleton visible so the HOD
-    # has somewhere to start adding courses.
-    programmes = Programme.objects.filter(department=department, is_active=True).order_by('name')
+    # Two groups of programmes get a section:
+    #   1. Every active programme under this department - so a
+    #      freshly-created programme still shows its empty Level/Semester
+    #      skeleton for the HOD to start filling in.
+    #   2. Every programme that one of THIS department's courses is
+    #      actually assigned to, even if that programme's own
+    #      ``department`` is unset (the field is nullable and defaults to
+    #      NULL) or points elsewhere, or the programme is inactive.
+    #      Without this, a course assigned to such a programme is dropped
+    #      from the tree entirely: it's excluded from the "No Programme"
+    #      bucket because it HAS a programme, yet group 1 never renders a
+    #      section for it.
+    programmes_by_id = {
+        p.id: p
+        for p in Programme.objects.filter(department=department, is_active=True)
+    }
+    missing_ids = set(by_programme) - set(programmes_by_id)
+    if missing_ids:
+        for p in Programme.objects.filter(id__in=missing_ids):
+            programmes_by_id[p.id] = p
+
+    programmes = sorted(programmes_by_id.values(), key=lambda p: p.name)
     tree = [
         {'programme': programme, 'levels': build_levels(by_programme.get(programme.pk, []), programme.levels)}
         for programme in programmes

@@ -30,6 +30,7 @@ class CourseForm(CrispyFormMixin, forms.ModelForm):
             department_by_value={
                 str(pk): str(department_id)
                 for pk, department_id in programme_field.queryset.values_list('pk', 'department_id')
+                if department_id is not None
             },
         )
         programme_field.widget.choices = programme_field.choices
