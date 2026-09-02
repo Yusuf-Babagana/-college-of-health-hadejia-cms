@@ -20,7 +20,12 @@
         option.disabled = false;
         return;
       }
-      var belongs = !departmentId || option.dataset.department === departmentId;
+      // An option with no data-department isn't scoped to any one
+      // department yet (e.g. a Programme whose department is unset) -
+      // keep it available under every department rather than hiding it.
+      var belongs = !departmentId ||
+        !option.dataset.department ||
+        option.dataset.department === departmentId;
       option.hidden = !belongs;
       option.disabled = !belongs;
       if (belongs && option.value === previousValue) {
