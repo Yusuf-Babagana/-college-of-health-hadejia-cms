@@ -45,8 +45,9 @@ class StudentListView(StudentManagementRoleMixin, PaginatedListMixin, ListView):
 
 
 class StudentCreateView(StudentManagementRoleMixin, FormView):
-    """Add a student: account + profile in one step, matric number
-    auto-generated. Available to ICT Admin and Registrar alike.
+    """Add a student: account + profile in one step, matric number typed
+    in by the Registrar (no fixed format, no auto-generation). Available
+    to ICT Admin and Registrar alike.
     """
     form_class = StudentCreateForm
     template_name = 'students/student_form.html'

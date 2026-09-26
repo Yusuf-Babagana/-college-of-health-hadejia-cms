@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from apps.core.admin import SoftDeleteAdminMixin
 
-from .models import Course, CourseOffering, CourseRegistration
+from .models import Course, CourseOffering, CourseRegistration, RegistrationApproval
 
 
 @admin.register(Course)
@@ -67,5 +67,15 @@ class CourseRegistrationAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_filter = SoftDeleteAdminMixin.list_filter + ('status', 'course_offering__semester')
     search_fields = ('student__matric_number', 'course_offering__course__code')
     autocomplete_fields = ('student', 'course_offering')
+    ordering = ('-created_at',)
+    readonly_fields = ('id', 'created_at', 'updated_at')
+
+
+@admin.register(RegistrationApproval)
+class RegistrationApprovalAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ('student', 'semester', 'status', 'reviewed_by', 'reviewed_at', 'is_deleted')
+    list_filter = SoftDeleteAdminMixin.list_filter + ('status', 'semester')
+    search_fields = ('student__matric_number',)
+    autocomplete_fields = ('student', 'semester', 'reviewed_by')
     ordering = ('-created_at',)
     readonly_fields = ('id', 'created_at', 'updated_at')

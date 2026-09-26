@@ -80,10 +80,35 @@ class Grade(BaseModel):
 
     @property
     def grade_band(self):
+        """Most-specific-wins lookup: a band scoped to the student's own
+        programme beats one scoped to their department, which beats the
+        college-wide default (department AND programme both blank) - see
+        GradeBand's docstring. Fetched as one query (bands in this score
+        range are typically a handful even with several departments/
+        programmes each defining their own scale) and resolved in Python
+        rather than three separate queries.
+
+        Cached on the instance - letter_grade and grade_point both read
+        this, and callers like the Master Broadsheet resolve both per
+        grade, so without caching a single row triggers this query twice.
+        """
+        if getattr(self, '_grade_band_cache', 'unset') != 'unset':
+            return self._grade_band_cache
+
         from .grade_band import GradeBand
 
         total = self.total_score
-        return GradeBand.objects.filter(min_score__lte=total, max_score__gte=total).first()
+        student = self.student
+        programme_band = department_band = default_band = None
+        for band in GradeBand.objects.filter(min_score__lte=total, max_score__gte=total):
+            if student.programme_id and band.programme_id == student.programme_id:
+                programme_band = programme_band or band
+            elif band.programme_id is None and band.department_id == student.department_id:
+                department_band = department_band or band
+            elif band.programme_id is None and band.department_id is None:
+                default_band = default_band or band
+        self._grade_band_cache = programme_band or department_band or default_band
+        return self._grade_band_cache
 
     @property
     def letter_grade(self):

@@ -24,7 +24,7 @@ urlpatterns = [
     path('collation/<uuid:pk>/unlock/', views.UnlockGradeView.as_view(), name='unlock_grade'),
 
     path('compile/', views.ApprovedGradeListView.as_view(), name='approved_grade_list'),
-    path('compile/<uuid:pk>/publish/', views.PublishGradesView.as_view(), name='publish_grades'),
+    path('compile/publish-selected/', views.PublishGradesBulkView.as_view(), name='publish_grades_bulk'),
     path('compile/<uuid:pk>/broadsheet/', views.BroadsheetPDFView.as_view(), name='broadsheet_pdf'),
     path('compile/<uuid:pk>/broadsheet/export/', views.BroadsheetCSVExportView.as_view(), name='broadsheet_csv'),
 

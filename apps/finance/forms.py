@@ -2,7 +2,7 @@ from django import forms
 from django.db import models
 
 from apps.core.constants import Level
-from apps.core.forms import CrispyFormMixin
+from apps.core.forms import CrispyFormMixin, DepartmentScopedSelect
 
 from .models import FeeStructure, FeeType, Invoice
 
@@ -16,20 +16,48 @@ class FeeTypeForm(CrispyFormMixin, forms.ModelForm):
 
 
 class FeeStructureForm(CrispyFormMixin, forms.ModelForm):
+    """Programme/Semester are optional narrowing fields (both blank
+    means "every programme, the whole session") - see FeeStructure's
+    docstring for the most-specific-wins resolution this feeds.
+    """
     submit_label = 'Save Fee Structure'
 
     class Meta:
         model = FeeStructure
-        fields = ('fee_type', 'department', 'level', 'session', 'amount', 'description')
+        fields = ('fee_type', 'department', 'programme', 'level', 'session', 'semester', 'amount', 'description')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.academics.models import Semester
+        from apps.admissions.models import Programme
+
+        self.fields['programme'].required = False
+        self.fields['programme'].empty_label = 'Every programme in the department'
+        programme_qs = Programme.objects.filter(is_active=True)
+        self.fields['programme'].queryset = programme_qs
+        self.fields['programme'].widget = DepartmentScopedSelect(
+            attrs={'data-scoped-by': 'department'},
+            department_by_value={
+                str(pk): str(department_id)
+                for pk, department_id in programme_qs.values_list('pk', 'department_id')
+                if department_id is not None
+            },
+        )
+        self.fields['programme'].widget.choices = self.fields['programme'].choices
+
+        self.fields['semester'].required = False
+        self.fields['semester'].empty_label = 'The whole session'
+        self.fields['semester'].queryset = Semester.objects.select_related('session')
 
 
 class BulkInvoiceGenerateForm(CrispyFormMixin, forms.Form):
     submit_label = 'Generate Invoices'
 
     fee_structure = forms.ModelChoiceField(
-        queryset=FeeStructure.objects.select_related('fee_type', 'department', 'session'),
+        queryset=FeeStructure.objects.select_related('fee_type', 'department', 'programme', 'session', 'semester'),
         label='Fee Structure',
-        help_text='Invoices will be generated for every active student in this fee structure\'s department and level.',
+        help_text='Invoices will be generated for every active student in this fee structure\'s department and level '
+                  '(narrowed to its programme too, if it\'s scoped to one).',
     )
     due_date = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
 
@@ -61,7 +89,7 @@ class IndividualInvoiceGenerateForm(CrispyFormMixin, forms.Form):
         help_text='Search by matric number or name.',
     )
     fee_structure = forms.ModelChoiceField(
-        queryset=FeeStructure.objects.select_related('fee_type', 'department', 'session'),
+        queryset=FeeStructure.objects.select_related('fee_type', 'department', 'programme', 'session', 'semester'),
         label='Fee Structure',
     )
     due_date = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
@@ -72,6 +100,47 @@ class IndividualInvoiceGenerateForm(CrispyFormMixin, forms.Form):
         self.fields['student'].queryset = Student.objects.select_related('user').filter(
             status=Student.Status.ACTIVE,
         )
+
+
+class StudentInvoiceGenerateForm(CrispyFormMixin, forms.Form):
+    """FR-FIN: student self-service invoice generation - Programme
+    narrows to the student's own department (defaulting to whatever's
+    already on their profile), Semester to the session currently
+    running for their level (see academics.selectors.get_semester_for_level).
+    """
+    submit_label = 'Generate Invoice'
+
+    programme = forms.ModelChoiceField(
+        queryset=None, required=False,
+        help_text='Leave blank if your programme isn\'t listed or doesn\'t affect your fees.',
+    )
+    semester = forms.ModelChoiceField(queryset=None, empty_label=None)
+
+    def __init__(self, *args, student, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.urls import reverse
+
+        from apps.academics.models import Semester
+        from apps.academics.selectors import get_semester_for_level
+        from apps.admissions.models import Programme
+
+        self.helper.form_action = reverse('finance:generate_my_invoice')
+
+        # Never filter Programme by department= here - Programme.department
+        # is NULL on most real rows in this system (see
+        # apps.admissions.models.Programme), so that filter would silently
+        # empty the dropdown for most students. Show every active
+        # programme instead, same as GradeBandForm/FeeStructureForm.
+        self.fields['programme'].queryset = Programme.objects.filter(is_active=True)
+        if student.programme_id:
+            self.fields['programme'].initial = student.programme_id
+
+        current_semester = get_semester_for_level(student.level)
+        self.fields['semester'].queryset = (
+            Semester.objects.filter(pk=current_semester.pk) if current_semester else Semester.objects.none()
+        )
+        if current_semester:
+            self.fields['semester'].initial = current_semester.pk
 
 
 class RecordOfflinePaymentForm(CrispyFormMixin, forms.Form):

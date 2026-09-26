@@ -1,5 +1,5 @@
 {% extends 'dashboard_base.html' %}
-{% load format_tags %}
+{% load crispy_forms_tags format_tags %}
 
 {% block title %}My Invoices · {{ COLLEGE_SHORT_NAME }}{% endblock %}
 {% block breadcrumb_items %}<li class="breadcrumb-item active">My Invoices</li>{% endblock %}
@@ -14,6 +14,19 @@
   </div>
 {% else %}
   <p class="text-muted mb-4">{{ student_profile.matric_number }} - {{ student_profile.department.name }}</p>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-transparent">Generate Invoice</div>
+    <div class="card-body">
+      {% if generate_form.fields.semester.queryset.exists %}
+        {% crispy generate_form %}
+      {% else %}
+        <p class="text-muted small mb-0">
+          No semester is currently running for your level yet - check back once the Registrar sets one.
+        </p>
+      {% endif %}
+    </div>
+  </div>
 
   <div class="card shadow-sm">
     <div class="table-responsive">

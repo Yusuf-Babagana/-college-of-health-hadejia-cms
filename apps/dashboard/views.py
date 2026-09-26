@@ -147,6 +147,28 @@ class HODDashboardView(RoleRequiredMixin, TemplateView):
                 lecturer.current_offering_count = workload[lecturer.id]['count']
                 lecturer.current_units = workload[lecturer.id]['units']
 
+            # FR-LEC-01: one login can teach across departments, so this
+            # department's own course tree can carry offerings assigned
+            # to a lecturer whose home department is elsewhere - the
+            # staff directory above (department.lecturers) wouldn't
+            # surface them at all otherwise, even though they're
+            # currently teaching here.
+            visiting_offerings = CourseOffering.objects.filter(
+                course__department=department, semester__in=current_semesters,
+            ).exclude(lecturer__department=department).exclude(lecturer__isnull=True).select_related(
+                'lecturer__user', 'lecturer__department', 'course',
+            )
+            visiting_workload = {}
+            for offering in visiting_offerings:
+                entry = visiting_workload.setdefault(
+                    offering.lecturer_id, {'lecturer': offering.lecturer, 'count': 0, 'units': 0},
+                )
+                entry['count'] += 1
+                entry['units'] += offering.course.credit_units
+            visiting_lecturers = sorted(
+                visiting_workload.values(), key=lambda entry: entry['lecturer'].user.get_full_name(),
+            )
+
             # FR: an HOD who is personally assigned to teach a course (via
             # Department's "Assign Courses" screen, same as any lecturer)
             # needs their own allocated offerings surfaced on their
@@ -165,6 +187,7 @@ class HODDashboardView(RoleRequiredMixin, TemplateView):
             context['course_tree'] = course_tree
             context['level_states'] = get_level_semester_states()
             context['department_lecturers'] = department_lecturers
+            context['visiting_lecturers'] = visiting_lecturers
             context['department_courses'] = department_courses
             context['department_students'] = department_students
             context['my_offerings'] = my_offerings

@@ -10,11 +10,6 @@ phone_number_validator = RegexValidator(
     message='Enter a valid phone number.',
 )
 
-matric_number_validator = RegexValidator(
-    regex=r'^[A-Z]{2,6}/\d{2,4}/\d{3,6}$',
-    message='Enter a valid matric number, e.g. CHE/2025/0001.',
-)
-
 academic_session_name_validator = RegexValidator(
     regex=r'^\d{4}/\d{4}$',
     message='Enter a session in the format YYYY/YYYY, e.g. 2025/2026.',

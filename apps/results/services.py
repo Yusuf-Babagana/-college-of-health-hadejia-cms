@@ -52,11 +52,13 @@ def review_grade(grade, *, approve, reviewer, comment=''):
     return grade
 
 
-def publish_grades(course_offering):
-    """FR: only the Exam Officer publishes results. Bulk-publishes every
-    HOD-approved grade for the offering.
+def publish_grades_for_offerings(course_offerings):
+    """FR-EXM: only the Exam Officer publishes results. Select/Mark-all
+    publish - bulk-publishes every HOD-approved grade across however many
+    course offerings were selected, in one UPDATE, so compiling
+    thousands of results doesn't mean one click per course offering.
     """
-    grades = Grade.objects.filter(course_offering=course_offering, status=Grade.Status.APPROVED)
+    grades = Grade.objects.filter(course_offering__in=course_offerings, status=Grade.Status.APPROVED)
     return grades.update(status=Grade.Status.PUBLISHED, published_at=timezone.now())
 
 

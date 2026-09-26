@@ -26,6 +26,7 @@ from .forms import (
     IndividualInvoiceGenerateForm,
     InitiateOnlinePaymentForm,
     RecordOfflinePaymentForm,
+    StudentInvoiceGenerateForm,
 )
 from .models import FeeStructure, FeeType, Invoice, Payment
 
@@ -291,7 +292,8 @@ class IndividualInvoiceGenerateView(FinanceManagementRoleMixin, FormView):
 
 class MyInvoicesView(RoleRequiredMixin, ListView):
     """FR-FIN-04 (student-facing half): a student's own invoices, so they
-    can actually see what they owe and pay it.
+    can actually see what they owe and pay it. Also carries the
+    Generate Invoice form (Programme + Semester) at the top of the page.
     """
     allowed_roles = (Role.STUDENT,)
     template_name = 'finance/my_invoices.html'
@@ -305,8 +307,48 @@ class MyInvoicesView(RoleRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['student_profile'] = getattr(self.request.user, 'student_profile', None)
+        student_profile = getattr(self.request.user, 'student_profile', None)
+        context['student_profile'] = student_profile
+        if student_profile:
+            context['generate_form'] = StudentInvoiceGenerateForm(student=student_profile)
         return context
+
+
+class GenerateMyInvoiceView(RoleRequiredMixin, View):
+    """FR-FIN: student self-service invoice generation - picks a
+    Programme and Semester, and every fee type billed to their own
+    department+level+session under that scope gets invoiced in one go
+    (skipping anything they already have an invoice for).
+    """
+    allowed_roles = (Role.STUDENT,)
+
+    def post(self, request):
+        student_profile = getattr(request.user, 'student_profile', None)
+        if not student_profile:
+            messages.error(request, 'No student profile linked to your account.')
+            return redirect('finance:my_invoices')
+
+        form = StudentInvoiceGenerateForm(request.POST, student=student_profile)
+        if not form.is_valid():
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, error)
+            return redirect('finance:my_invoices')
+
+        try:
+            created = services.generate_invoices_for_student(
+                student=student_profile,
+                programme=form.cleaned_data['programme'],
+                semester=form.cleaned_data['semester'],
+            )
+        except ValidationError as exc:
+            messages.error(request, exc.message)
+        else:
+            if created:
+                messages.success(request, f'Generated {len(created)} invoice(s).')
+            else:
+                messages.info(request, 'No new invoices - either none are billed for this selection, or you already have them.')
+        return redirect('finance:my_invoices')
 
 
 class PaymentListView(FinanceManagementRoleMixin, PaginatedListMixin, ListView):

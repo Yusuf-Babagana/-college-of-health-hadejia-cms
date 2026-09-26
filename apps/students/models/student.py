@@ -3,7 +3,6 @@ from django.db import models
 
 from apps.core.constants import Level
 from apps.core.models import BaseModel
-from apps.core.utils.validators import matric_number_validator
 
 
 class Student(BaseModel):
@@ -26,7 +25,8 @@ class Student(BaseModel):
         related_name='student_profile',
     )
     matric_number = models.CharField(
-        max_length=30, unique=True, validators=[matric_number_validator],
+        max_length=30, unique=True,
+        help_text='Assigned by the Registrar - no fixed format, but must be unique.',
     )
     department = models.ForeignKey(
         'departments.Department',
