@@ -8,23 +8,33 @@ Master Broadsheet. Existing students almost certainly predate the
 Programme field, so this bulk-assigns a whole department/level cohort
 at once instead of editing students one at a time.
 
-Usage examples (run on the server, e.g. the PythonAnywhere console):
+Usage examples (run on the server, e.g. the PythonAnywhere console) -
+ALWAYS run with --dry-run first and read the printed list carefully
+before dropping it; a department/level filter matches every student
+meeting it, which - on a real database - means real students:
 
-    # Preview which CHE, Level 100 students with no Programme yet would be tagged
-    python manage.py assign_student_programme --department CHE --level 100 \
-        --programme SCHEW --dry-run
+    # Preview which students in one department+level with no Programme
+    # yet would be tagged
+    python manage.py assign_student_programme --department <DEPT_CODE> --level <LEVEL> \
+        --programme <PROGRAMME_CODE> --dry-run
 
-    # Actually assign them
-    python manage.py assign_student_programme --department CHE --level 100 \
-        --programme SCHEW
+    # Actually assign them, once the preview looks right
+    python manage.py assign_student_programme --department <DEPT_CODE> --level <LEVEL> \
+        --programme <PROGRAMME_CODE>
 
     # One specific student by matric number
-    python manage.py assign_student_programme --matric CHE/2025/0003 --programme SCHEW
+    python manage.py assign_student_programme --matric <MATRIC_NUMBER> --programme <PROGRAMME_CODE>
 
-    # Re-assign students that already have a (wrong) Programme set
-    python manage.py assign_student_programme --department CHE --programme JCHEW --force
+    # Re-assign students that already have a (wrong) Programme set -
+    # requires --force; without it, already-assigned students are
+    # always left alone
+    python manage.py assign_student_programme --department <DEPT_CODE> --programme <PROGRAMME_CODE> --force
+
+Use `python manage.py inspect_student_programmes` first to see exactly
+who currently has no Programme assigned before choosing filters here.
 """
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 
 class Command(BaseCommand):
@@ -101,7 +111,8 @@ class Command(BaseCommand):
         if not options['dry_run']:
             for student in to_update:
                 student.programme = programme
-            Student.objects.bulk_update(to_update, ['programme'])
+            with transaction.atomic():
+                Student.objects.bulk_update(to_update, ['programme'])
             self.stdout.write(self.style.SUCCESS(f'Updated {len(to_update)} student(s).'))
         else:
             self.stdout.write(self.style.WARNING('Dry run - nothing was saved.'))

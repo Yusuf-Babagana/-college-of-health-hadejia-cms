@@ -98,6 +98,54 @@ def get_available_offerings_for_student(student, semester):
     )
 
 
+def get_course_offerings_for_programme(offerings_qs, programme):
+    """Narrows an already-scoped CourseOffering queryset (e.g. pre-filtered
+    to one level/semester by the caller) down to the offerings available
+    to one Programme - independent of any specific student.
+
+    This is the single authoritative "which courses does Programme P
+    offer" rule, used by the Master Broadsheet's column stage
+    (apps.results.selectors.get_master_broadsheet). Priority order,
+    matching is_offering_eligible_for_student's programme-facing rule:
+      1. Explicit tagging always wins - the course's primary Programme
+         is this one, OR this Programme is in the course's
+         eligible_programmes (cross-listing, e.g. a course shared by a
+         couple of programmes).
+      2. Otherwise, the course's department being flagged General
+         Studies is only a fallback for courses with NEITHER a primary
+         Programme NOR any eligible_programmes of their own - an HOD
+         narrowing one specific GST course to particular programmes
+         should actually narrow it, not get overridden by the blanket
+         "every programme" default.
+
+    Deliberately NOT unified with get_available_offerings_for_student's
+    department-based "own department, unclassified course" fallback
+    (see that function's docstring) - that fallback exists for
+    *registration*, keyed off a specific student's department, and has
+    no Programme-only equivalent here: a course can be this Programme's
+    without the Programme's own department ever entering into it. Folding
+    that fallback into this helper would silently change who can
+    register, which is out of scope for a broadsheet's column list.
+
+    Two separate queries unioned by pk (rather than one query combining
+    multiple M2M lookups with Q/~Q), matching the pattern used
+    throughout this module to avoid Django's usual multi-valued-
+    relationship join pitfalls.
+    """
+    explicit_ids = set(
+        offerings_qs.filter(
+            Q(course__programme=programme) | Q(course__eligible_programmes=programme),
+        ).values_list('pk', flat=True)
+    )
+    blanket_ids = set(
+        offerings_qs.filter(course__department__is_general_studies=True)
+        .filter(course__programme__isnull=True)
+        .exclude(course__eligible_programmes__isnull=False)
+        .values_list('pk', flat=True)
+    )
+    return offerings_qs.filter(pk__in=explicit_ids | blanket_ids)
+
+
 def is_offering_eligible_for_student(course_offering, student):
     """Same eligibility rule as get_available_offerings_for_student,
     evaluated for one already-known offering rather than a queryset -
@@ -193,6 +241,12 @@ def get_department_course_tree(department, *, current_offerings_by_key=None):
     level_labels = dict(Level.choices)
 
     def build_levels(course_list, level_values):
+        # Always cover the requested level span, PLUS any level a course
+        # in this bucket is actually tagged with even if it falls outside
+        # that span (e.g. a course mis-levelled past its programme's
+        # duration) - a stray course must still surface in the tree
+        # rather than silently vanish.
+        level_values = sorted(set(level_values) | {c.level for c in course_list})
         levels = []
         for level_value in level_values:
             level_courses = [c for c in course_list if c.level == level_value]
@@ -207,11 +261,28 @@ def get_department_course_tree(department, *, current_offerings_by_key=None):
             levels.append({'value': level_value, 'label': level_labels[level_value], 'semesters': semesters})
         return levels
 
-    # Every active programme under the department is shown, not just
-    # ones that already have a course - a freshly-created programme
-    # still needs its empty Level/Semester skeleton visible so the HOD
-    # has somewhere to start adding courses.
-    programmes = Programme.objects.filter(department=department, is_active=True).order_by('name')
+    # Two groups of programmes get a section:
+    #   1. Every active programme under this department - so a
+    #      freshly-created programme still shows its empty Level/Semester
+    #      skeleton for the HOD to start filling in.
+    #   2. Every programme that one of THIS department's courses is
+    #      actually assigned to, even if that programme's own
+    #      ``department`` is unset (the field is nullable and defaults to
+    #      NULL) or points elsewhere, or the programme is inactive.
+    #      Without this, a course assigned to such a programme is dropped
+    #      from the tree entirely: it's excluded from the "No Programme"
+    #      bucket because it HAS a programme, yet group 1 never renders a
+    #      section for it.
+    programmes_by_id = {
+        p.id: p
+        for p in Programme.objects.filter(department=department, is_active=True)
+    }
+    missing_ids = set(by_programme) - set(programmes_by_id)
+    if missing_ids:
+        for p in Programme.objects.filter(id__in=missing_ids):
+            programmes_by_id[p.id] = p
+
+    programmes = sorted(programmes_by_id.values(), key=lambda p: p.name)
     tree = [
         {'programme': programme, 'levels': build_levels(by_programme.get(programme.pk, []), programme.levels)}
         for programme in programmes

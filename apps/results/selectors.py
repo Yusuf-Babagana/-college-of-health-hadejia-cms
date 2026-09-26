@@ -178,78 +178,68 @@ def get_collated_grades(*, department=None, semester=None, status=None):
 
 
 def get_master_broadsheet(*, programme, semester, level):
-    """FR-EXM-06: the pivoted academic-board broadsheet - one row per
-    student, one column per course offered to that programme+level in
-    that semester, with a semester GPA in the final column.
+    """FR-EXM-06: the pivoted academic-board broadsheet for one Programme,
+    Level, and Semester - one row per student, one column per course, a
+    semester GPA in the final column. Built in three independent stages,
+    since conflating them is exactly how a student ends up on the wrong
+    programme's sheet:
 
-    Scoped by Programme rather than Department: a department like
-    Community Health can run several programmes (e.g. CHEW, JCHEW) whose
-    curricula differ, so "every course in the department at this level"
-    would mix courses that don't actually belong together on one board
-    document. Mirrors apps.courses.selectors.is_offering_eligible_for_student's
-    priority order, so "who can register" and "who's on the broadsheet"
-    never disagree about the same course - a course counts as this
-    programme's when either:
-      - it's explicitly tagged this Programme (primary, or cross-listed
-        via eligible_programmes) - e.g. a course shared by exactly a
-        couple of programmes appears on each of theirs; or
-      - it has no explicit Programme/eligible_programmes tagging at all,
-        AND its department is flagged General Studies - a truly
-        college-wide course (Use of English, Library, ...) shouldn't
-        need per-programme tagging maintained on it, since by
-        definition every programme's students take it.
-    A course still sitting in the "No Programme" bucket under an
-    ordinary (non-General-Studies) department won't show up in any
+    STAGE A - COLUMNS. Which courses belong to this Programme, at this
+    level/semester? Delegated entirely to
+    apps.courses.selectors.get_course_offerings_for_programme - the one
+    authoritative "who does this course belong to" rule, shared with
+    nothing else touching student-specific eligibility (see that
+    function's docstring for the exact priority order: explicit
+    Programme/eligible_programmes tagging beats the department's blanket
+    General Studies fallback). A course still sitting in the "No
+    Programme" bucket under an ordinary department won't show up in any
     Master Broadsheet until it's tagged one way or the other.
 
-    Rows (students) are NOT everyone who happens to be registered for
-    one of the columns above - that would put a Certificate student on
-    the Diploma sheet just because they share one common course. Rows
-    are the students who are both registered for something in this set
-    AND whose OWN Programme (Student.programme) is this one - a shared
-    course still appears as a column on every programme that shares it,
-    but which specific students show up as rows on each programme's
-    sheet is decided by their own enrollment, never by which course
-    they happened to take. A student with no Programme assigned on
-    their own record won't appear on ANY Master Broadsheet - see
-    apps.students.management.commands.assign_student_programme for
-    bulk-assigning existing students.
-    """
-    from django.db.models import Q
+    STAGE B - ROWS. Which students actually belong to this Programme?
+    Answered ONLY by Student.programme == programme - never by course
+    registration, never by course eligibility. A shared course being a
+    column on two programmes' sheets does NOT make a student who took it
+    appear on both; only their own Programme decides which one sheet
+    they're on. Also requires Student.level == level (not merely implied
+    by "registered for a level-L course" - protects against a carried-
+    over/repeat-course registration putting a student on the wrong
+    level's board), and excludes withdrawn/suspended students (FR-REG-05
+    status semantics - a board document reflects the currently-enrolled
+    cohort). A student with no Programme assigned on their own record
+    won't appear on ANY Master Broadsheet - see
+    apps.students.management.commands.assign_student_programme for a
+    safe, dry-run-first bulk assignment tool, and
+    apps.students.management.commands.inspect_student_programmes to find
+    who needs one.
 
+    STAGE C - CELLS. For each student x course in the grid above, their
+    HOD-approved-or-published grade, if any - a raw, still-editable draft
+    has no business appearing on a document meant for final academic
+    board ratification.
+    """
     from apps.courses.models import CourseOffering, CourseRegistration
+    from apps.courses.selectors import get_course_offerings_for_programme
     from apps.students.models import Student
 
-    base_qs = CourseOffering.objects.filter(course__level=level, semester=semester)
-
-    explicit_ids = set(
-        base_qs.filter(
-            Q(course__programme=programme) | Q(course__eligible_programmes=programme),
-        ).values_list('pk', flat=True)
-    )
-    blanket_ids = set(
-        base_qs.filter(course__department__is_general_studies=True)
-        .filter(course__programme__isnull=True)
-        .exclude(course__eligible_programmes__isnull=False)
-        .values_list('pk', flat=True)
-    )
-
+    # --- Stage A: columns ---
     offerings = list(
-        base_qs.filter(pk__in=explicit_ids | blanket_ids)
-        .select_related('course').order_by('course__code')
+        get_course_offerings_for_programme(
+            CourseOffering.objects.filter(course__level=level, semester=semester), programme,
+        ).select_related('course').order_by('course__code')
     )
     courses = [offering.course for offering in offerings]
 
+    # --- Stage B: rows ---
     registered_student_ids = CourseRegistration.objects.filter(
         course_offering__in=offerings, status=CourseRegistration.Status.REGISTERED,
     ).values_list('student_id', flat=True).distinct()
     students = Student.objects.filter(
-        pk__in=registered_student_ids, programme=programme,
+        pk__in=registered_student_ids, programme=programme, level=level,
+    ).exclude(
+        status__in=[Student.Status.WITHDRAWN, Student.Status.SUSPENDED],
     ).select_related('user').order_by('matric_number')
 
-    # Only HOD-approved-or-published grades belong on a document meant
-    # for final academic board ratification - a raw, still-editable
-    # draft has no business appearing here.
+    # --- Stage C: cells (only HOD-approved-or-published grades) ---
     grades_by_student_course = {}
     for grade in Grade.objects.filter(
         course_offering__in=offerings, status__in=[Grade.Status.APPROVED, Grade.Status.PUBLISHED],
