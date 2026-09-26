@@ -2,7 +2,7 @@ from django import forms
 
 from apps.core.constants import Level
 from apps.core.forms import CrispyFormMixin, DepartmentScopedSelect
-from apps.core.utils.validators import matric_number_validator, phone_number_validator
+from apps.core.utils.validators import phone_number_validator
 
 from .models import Student
 
@@ -11,9 +11,8 @@ class StudentCreateForm(CrispyFormMixin, forms.Form):
     """One combined "Add Student" form: the account and the academic
     profile are created together by services.create_student - which is
     why this is a plain Form, not a ModelForm over Student. The matric
-    number can be typed in (e.g. transferring in an existing number) or
-    left blank to auto-generate the next one in the department + year
-    sequence.
+    number has no fixed format - the Registrar types in whatever number
+    was assigned, and only uniqueness is enforced here.
     """
     submit_label = 'Create Student'
 
@@ -29,9 +28,8 @@ class StudentCreateForm(CrispyFormMixin, forms.Form):
     level = forms.TypedChoiceField(choices=Level.choices, coerce=int, initial=Level.LEVEL_100)
     admission_session = forms.ModelChoiceField(queryset=None)
     matric_number = forms.CharField(
-        max_length=30, required=False,
-        help_text='e.g. CHE/2025/0005. Leave blank to auto-generate the next number '
-                  'for the chosen department and admission session.',
+        max_length=30,
+        help_text='Assigned by the Registrar - no fixed format, but it must be unique.',
     )
 
     def __init__(self, *args, **kwargs):
@@ -55,13 +53,9 @@ class StudentCreateForm(CrispyFormMixin, forms.Form):
         self.fields['programme'].widget.choices = self.fields['programme'].choices
 
     def clean_matric_number(self):
-        # Uppercase before validating, so 'che/2025/0005' is accepted -
-        # a field-level validator would run against the raw input.
-        matric_number = (self.cleaned_data.get('matric_number') or '').strip().upper()
-        if matric_number:
-            matric_number_validator(matric_number)
-            if Student.all_objects.filter(matric_number=matric_number).exists():
-                raise forms.ValidationError('A student with this matric number already exists.')
+        matric_number = self.cleaned_data.get('matric_number', '').strip()
+        if Student.all_objects.filter(matric_number=matric_number).exists():
+            raise forms.ValidationError('A student with this matric number already exists.')
         return matric_number
 
 

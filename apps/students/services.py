@@ -1,60 +1,51 @@
 """
 Business logic for student management: creating a student (User account
-+ profile together, with an auto-generated matric number) and status
-changes (FR-REG-05).
++ profile together) and status changes (FR-REG-05).
 """
+from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models.functions import Length
 
 from .models import Student
 
 
-def _next_matric_number(department, admission_session):
-    """First free matric number for this department + admission year,
-    e.g. CHE/2025/0005. Sequences never reuse a number: the next one is
-    max(existing) + 1, so an archived or deleted student's number stays
-    retired.
-    """
-    from apps.core.utils.generators import generate_matric_number
-
-    admission_year = int(admission_session.name.partition('/')[0])
-    prefix = f'{department.code}/{admission_year}/'
-
-    last = (
-        Student.all_objects.filter(matric_number__startswith=prefix)
-        .order_by(Length('matric_number').desc(), '-matric_number')
-        .values_list('matric_number', flat=True)
-        .first()
-    )
-    last_sequence = 0
-    if last:
-        suffix = last.removeprefix(prefix)
-        if suffix.isdigit():
-            last_sequence = int(suffix)
-
-    return generate_matric_number(department.code, admission_year, last_sequence + 1)
-
-
-def create_student(*, first_name, last_name, email, phone_number='', department, level,
-                   admission_session, matric_number='', programme=None):
+def create_student(*, first_name, last_name, email, matric_number, phone_number='', department, level,
+                   admission_session, programme=None):
     """Provision a student: User account (role=student, temporary
     password) plus Student profile, atomically - a half-created student
     (account without profile) would be able to log in but see nothing.
 
-    ``matric_number`` may be supplied (e.g. a transfer student keeping an
-    existing number); when blank the next number in the department +
-    admission-year sequence is generated. The username is the matric
-    number with '/' flattened to '.', since Django usernames can't
-    contain slashes. Returns (student, temp_password); the password is
-    shown exactly once by the caller.
+    ``matric_number`` has no fixed format - it's whatever the Registrar
+    was given/assigned, and only needs to be unique (enforced by the
+    model field and, for a clearer form error, StudentCreateForm). The
+    username is derived from it (lowercased, with '/' and spaces
+    flattened to '.', since Django usernames can't contain those).
+    Returns (student, temp_password); the password is shown exactly once
+    by the caller.
     """
+    from apps.accounts.models import User
     from apps.accounts.services import create_user
     from apps.core.constants import Role
 
+    matric_number = matric_number.strip()
+    if not matric_number:
+        raise ValidationError({'matric_number': 'Matric number is required.'})
+
+    # Matric number case is preserved (not forced uppercase - see
+    # StudentCreateForm), but the username derived from it below is
+    # always lowercased, so two matric numbers that differ only by case
+    # (e.g. 'CHE/2025/0001' and 'che/2025/0001') would otherwise pass the
+    # form's case-sensitive uniqueness check and only collide once
+    # User.objects.create_user hits the DB - as an unhandled
+    # IntegrityError instead of a clean form/validation error.
+    username = matric_number.lower().replace('/', '.').replace(' ', '.')
+    if User.objects.filter(username=username).exists():
+        raise ValidationError(
+            {'matric_number': 'A student with a matching matric number already exists.'}
+        )
+
     with transaction.atomic():
-        matric_number = matric_number.strip().upper() or _next_matric_number(department, admission_session)
         user, temp_password = create_user(
-            username=matric_number.lower().replace('/', '.'),
+            username=username,
             email=email,
             first_name=first_name,
             last_name=last_name,
