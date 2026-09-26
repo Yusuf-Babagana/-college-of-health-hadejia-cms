@@ -43,15 +43,23 @@ class CourseForm(CrispyFormMixin, forms.ModelForm):
 
 
 class CourseOfferingForm(CrispyFormMixin, forms.ModelForm):
-    """HOD-facing: course and lecturer choices are scoped to the HOD's
-    own department, passed in from the view. The semester is never a
-    free user choice - FR-HOD-02 activates a course for the semester its
-    LEVEL is currently running (per LevelSemesterState), resolved in
-    clean() from the selected course. Keeping semester as a real (if
-    hidden) ModelChoiceField - rather than dropping it from the form
-    entirely - matters: Django's full_clean() only enforces the
-    unique_offering_per_course_semester constraint for fields that are
-    actually part of the form.
+    """HOD-facing: course choices are scoped to the HOD's own department,
+    passed in from the view - a course genuinely belongs to one
+    department. The lecturer choice is deliberately NOT department-
+    scoped: a lecturer's Lecturer.department is just their one home
+    profile/login, but the same lecturer can be assigned to teach a
+    course in any department (one login, no separate account per
+    department taught) - see FR-LEC-01. Lecturer.__str__ appends the
+    lecturer's home department code, so the dropdown still shows where
+    each one is normally based.
+
+    The semester is never a free user choice - FR-HOD-02 activates a
+    course for the semester its LEVEL is currently running (per
+    LevelSemesterState), resolved in clean() from the selected course.
+    Keeping semester as a real (if hidden) ModelChoiceField - rather than
+    dropping it from the form entirely - matters: Django's full_clean()
+    only enforces the unique_offering_per_course_semester constraint for
+    fields that are actually part of the form.
     """
     submit_label = 'Save Course Offering'
 
@@ -62,12 +70,18 @@ class CourseOfferingForm(CrispyFormMixin, forms.ModelForm):
 
     def __init__(self, *args, department=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if department is not None:
-            from apps.lecturers.models import Lecturer
+        from apps.lecturers.models import Lecturer
 
+        if department is not None:
             self.fields['course'].queryset = Course.objects.filter(department=department)
-            self.fields['lecturer'].queryset = Lecturer.objects.filter(department=department).select_related('user')
+        self.fields['lecturer'].queryset = Lecturer.objects.select_related('user', 'department').order_by(
+            'user__first_name', 'user__last_name',
+        )
         self.fields['lecturer'].required = False
+        self.fields['lecturer'].help_text = (
+            'Any lecturer college-wide can be assigned - not just this department\'s own staff, '
+            'since one lecturer can teach courses in several departments under a single login.'
+        )
         self.fields['semester'].required = False
         self.fields['course'].help_text = (
             'The offering goes into the semester currently running for the course\'s level.'

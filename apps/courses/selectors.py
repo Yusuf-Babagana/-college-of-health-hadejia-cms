@@ -4,7 +4,24 @@ registrations.
 """
 from django.db.models import Q
 
-from .models import Course, CourseOffering, CourseRegistration
+from .models import Course, CourseOffering, CourseRegistration, RegistrationApproval
+
+
+def get_current_offering_for_course(course):
+    """FR-STU-CARRY: the CourseOffering for this exact course in whatever
+    semester is currently running for the course's own level (per
+    LevelSemesterState) - "the newest instance of this course", used to
+    find a fresh offering of a previously-failed course to retake.
+    Deliberately resolved via the course's level rather than by ordering
+    CourseOffering rows by date, to stay consistent with this codebase's
+    per-level (not global) notion of "current semester".
+    """
+    from apps.academics.selectors import get_semester_for_level
+
+    semester = get_semester_for_level(course.level)
+    if not semester:
+        return None
+    return CourseOffering.objects.filter(course=course, semester=semester).first()
 
 
 def get_course_list(*, search=None, department=None, level=None, include_archived=False):
@@ -146,17 +163,25 @@ def get_course_offerings_for_programme(offerings_qs, programme):
     return offerings_qs.filter(pk__in=explicit_ids | blanket_ids)
 
 
-def is_offering_eligible_for_student(course_offering, student):
+def is_offering_eligible_for_student(course_offering, student, *, ignore_level=False):
     """Same eligibility rule as get_available_offerings_for_student,
     evaluated for one already-known offering rather than a queryset -
     used as a server-side check in services.register_course so a direct
     POST can't register a student for a course their programme, level,
     or department doesn't actually make them eligible for, regardless of
     what the "Available Courses" page happened to render.
+
+    ``ignore_level`` relaxes only the level check, for
+    services.register_carryover_course: a carryover retake is legitimately
+    outside the student's current level by definition, but their
+    department/programme/eligible-departments/eligible-programmes
+    eligibility still has to hold - e.g. a student who transferred
+    department after failing a course shouldn't silently keep carryover
+    access to their old department's course.
     """
     course = course_offering.course
 
-    if course.level != student.level:
+    if not ignore_level and course.level != student.level:
         return False
 
     if course.department_id == student.department_id:
@@ -186,6 +211,65 @@ def get_registered_courses(student, *, semester=None):
     if semester:
         qs = qs.filter(course_offering__semester=semester)
     return qs
+
+
+def get_registration_approval(student, semester):
+    return RegistrationApproval.objects.filter(student=student, semester=semester).first()
+
+
+def is_registration_approved(student, semester):
+    """FR-HOD-07: once the HOD has approved a student's registration for
+    a semester, self-service add/drop locks for that student - see
+    services.register_course/drop_course.
+    """
+    approval = get_registration_approval(student, semester)
+    return bool(approval and approval.is_approved)
+
+
+def get_registration_approval_queue(department=None, *, semester=None):
+    """FR-HOD-07: the HOD's registration-approval queue - one row per
+    (student, semester) with at least one active registration in this
+    department, each annotated with its RegistrationApproval (or None,
+    meaning still pending - approval rows are only created once a
+    decision is actually made, see services.approve_registration).
+    Passing department=None (Super Admin oversight) spans every
+    department, matching get_registrations_for_department.
+    """
+    registrations = list(
+        get_registrations_for_department(department, semester=semester, status=CourseRegistration.Status.REGISTERED)
+    )
+
+    groups = {}
+    for reg in registrations:
+        key = (reg.student_id, reg.course_offering.semester_id)
+        group = groups.setdefault(key, {
+            'student': reg.student,
+            'semester': reg.course_offering.semester,
+            'registrations': [],
+        })
+        group['registrations'].append(reg)
+
+    approvals = {
+        (a.student_id, a.semester_id): a
+        for a in RegistrationApproval.objects.filter(
+            student_id__in={key[0] for key in groups}, semester_id__in={key[1] for key in groups},
+        )
+    }
+
+    rows = []
+    for key, group in groups.items():
+        approval = approvals.get(key)
+        rows.append({
+            'student': group['student'],
+            'semester': group['semester'],
+            'registrations': group['registrations'],
+            'total_units': sum(r.course_offering.course.credit_units for r in group['registrations']),
+            'approval': approval,
+            'is_approved': bool(approval and approval.is_approved),
+        })
+
+    rows.sort(key=lambda row: (row['student'].matric_number, str(row['semester'])))
+    return rows
 
 
 def get_class_list_for_offering(course_offering):

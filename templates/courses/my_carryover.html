@@ -1,0 +1,56 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}My Carryover · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">My Carryover</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">My Carryover</h4>
+<p class="text-muted small mb-4">
+  Courses you failed. A carryover registers itself automatically as soon as it's re-offered
+  and course registration is open - you don't need to add it yourself.
+</p>
+
+{% if not student_profile %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    No student profile is linked to your account. Contact the Registrar.
+  </div>
+{% else %}
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Code</th>
+          <th>Title</th>
+          <th>Failed In</th>
+          <th>Score</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><span class="badge badge-teal">{{ row.course.code }}</span></td>
+          <td>{{ row.course.title }}</td>
+          <td>{{ row.failed_offering.semester }}</td>
+          <td>{{ row.failed_grade.total_score }}</td>
+          <td>
+            {% if row.is_registered %}
+              <span class="badge bg-success">Registered for retake - {{ row.current_offering.semester }}</span>
+            {% elif row.current_offering %}
+              <span class="badge bg-warning text-dark">Re-offered - registers automatically once open</span>
+            {% else %}
+              <span class="badge bg-secondary">Awaiting re-offering</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No outstanding carryover courses.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

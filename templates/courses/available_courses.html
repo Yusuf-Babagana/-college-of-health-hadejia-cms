@@ -27,6 +27,11 @@
     You have an outstanding balance for {{ active_semester.session.name }}. Course registration is locked until
     you clear your fees. <a href="{% url 'finance:my_invoices' %}" class="alert-link">View / Pay your invoice</a>.
   </div>
+{% elif is_approved %}
+  <div class="alert alert-success">
+    <i class="bi bi-check-circle-fill me-1"></i>
+    Your HOD has approved this semester's registration. To add a course now, contact your HOD.
+  </div>
 {% elif not active_semester.is_registration_open %}
   <div class="alert alert-warning">
     <i class="bi bi-clock-history me-1"></i>

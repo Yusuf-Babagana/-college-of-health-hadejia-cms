@@ -24,9 +24,28 @@ urlpatterns = [
     path('registrations/<uuid:pk>/cancel/', views.HODCancelRegistrationView.as_view(), name='cancel_registration'),
     path('registrations/conflicts/', views.RegistrationConflictsView.as_view(), name='registration_conflicts'),
 
+    path('registrations/approvals/', views.RegistrationApprovalQueueView.as_view(), name='registration_approvals'),
+    path(
+        'registrations/approvals/<uuid:student_pk>/<uuid:semester_pk>/approve/',
+        views.ApproveRegistrationView.as_view(), name='approve_registration',
+    ),
+    path(
+        'registrations/approvals/<uuid:student_pk>/<uuid:semester_pk>/unapprove/',
+        views.UnapproveRegistrationView.as_view(), name='unapprove_registration',
+    ),
+    path(
+        'registrations/approvals/<uuid:student_pk>/<uuid:semester_pk>/manage/',
+        views.ManageStudentRegistrationView.as_view(), name='manage_student_registration',
+    ),
+    path(
+        'registrations/approvals/<uuid:student_pk>/add/',
+        views.HODAddCourseView.as_view(), name='hod_add_course',
+    ),
+
     path('available/', views.AvailableCourseListView.as_view(), name='available_courses'),
     path('available/<uuid:pk>/register/', views.RegisterCourseView.as_view(), name='register_course'),
     path('my-registrations/', views.MyCourseRegistrationsView.as_view(), name='my_registrations'),
     path('my-registrations/<uuid:pk>/drop/', views.DropCourseView.as_view(), name='drop_course'),
     path('my-registrations/slip/', views.RegistrationSlipPDFView.as_view(), name='registration_slip'),
+    path('my-carryover/', views.MyCarryoverView.as_view(), name='my_carryover'),
 ]

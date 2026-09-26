@@ -1,0 +1,95 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Registration Approvals · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">Registration Approvals</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Registration Approvals</h4>
+{% if department %}
+  <p class="text-muted small mb-4">{{ department.name }} ({{ department.code }})</p>
+{% elif is_overseer %}
+  <p class="text-muted small mb-4">All departments</p>
+{% endif %}
+
+{% if not department and not is_overseer %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Your account has no linked department. Contact the ICT Administrator.
+  </div>
+{% else %}
+
+{% if is_overseer %}
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <select name="department" class="form-select" onchange="this.form.submit()">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if dept.pk|stringformat:'s' == current_department %}selected{% endif %}>{{ dept.code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<p class="text-muted small">
+  Approving a student's registration locks it against further self-service add/drop and
+  enables their registration slip. Once approved, use <strong>Manage</strong> to add or drop
+  courses on their behalf.
+</p>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Matric Number</th>
+          <th>Student</th>
+          <th>Semester</th>
+          <th>Courses</th>
+          <th>Units</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><span class="badge badge-teal">{{ row.student.matric_number }}</span></td>
+          <td>{{ row.student.user.get_full_name }}</td>
+          <td>{{ row.semester }}</td>
+          <td>{{ row.registrations|length }}</td>
+          <td>{{ row.total_units }}</td>
+          <td>
+            {% if row.is_approved %}
+              <span class="badge bg-success">Approved</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">Pending</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{% url 'courses:manage_student_registration' row.student.pk row.semester.pk %}"
+               class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-gear"></i> Manage
+            </a>
+            {% if not row.is_approved %}
+            <form method="post" action="{% url 'courses:approve_registration' row.student.pk row.semester.pk %}" class="d-inline"
+                  onsubmit="return confirm('Approve {{ row.student.matric_number }}\'s registration for {{ row.semester }}?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check-circle"></i> Approve</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No pending registrations found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
