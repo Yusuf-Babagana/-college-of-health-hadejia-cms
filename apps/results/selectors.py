@@ -4,9 +4,37 @@ and published results/GPA.
 """
 from .models import Grade, GradeBand
 
+# FR-EXM-06: Master Broadsheet remark cutoffs, on this college's 4-point
+# semester-GPA scale (confirmed by the user 2026-09-26) - anyone below
+# LOWER_CREDIT_GPA, or with any Fail this semester regardless of GPA, is
+# remarked Fail. REMARK_ORDER is the row-sort key: passing remarks first
+# (best to worst), Pending (no grades yet) next, Fail rows sink to the
+# bottom of the sheet.
+DISTINCTION_GPA = 3.50
+UPPER_CREDIT_GPA = 3.00
+LOWER_CREDIT_GPA = 2.00
+REMARK_ORDER = {'Distinction': 0, 'Upper Credit': 1, 'Lower Credit': 2, 'Pending': 3, 'Fail': 4}
+
 
 def get_grade_bands():
-    return GradeBand.objects.all()
+    return GradeBand.objects.select_related('department', 'programme').all()
+
+
+def compute_broadsheet_remark(gpa, *, has_fail):
+    """FR-EXM-06: the Master Broadsheet's Remark column - 'Pending' when
+    the student has no graded courses yet (never Fail just for being
+    ungraded), 'Fail' for any outstanding Fail this semester or a GPA
+    below LOWER_CREDIT_GPA, otherwise the matching pass tier.
+    """
+    if gpa is None:
+        return 'Pending'
+    if has_fail or gpa < LOWER_CREDIT_GPA:
+        return 'Fail'
+    if gpa >= DISTINCTION_GPA:
+        return 'Distinction'
+    if gpa >= UPPER_CREDIT_GPA:
+        return 'Upper Credit'
+    return 'Lower Credit'
 
 
 def get_offerings_for_lecturer(lecturer, *, semester=None):
@@ -56,6 +84,47 @@ def get_published_results_for_student(student, *, semester=None):
     if semester:
         qs = qs.filter(course_offering__semester=semester)
     return qs
+
+
+def get_carryover_courses(student):
+    """FR-STU-CARRY: courses still outstanding as a Fail - i.e. the
+    student's most recent PUBLISHED attempt at that course was a Fail,
+    not cleared by any later retake. A course can be attempted more than
+    once across different CourseOfferings (each retake is a new Grade
+    row against a new CourseOffering of the same Course - Grade is only
+    unique per (student, course_offering), not per (student, course)),
+    so this groups by Course and looks only at the LATEST attempt,
+    ordering attempts by (session name, semester name) - safe here since
+    session names are "YYYY/YYYY" and semester names are "first"/
+    "second", both of which sort correctly as plain strings (the same
+    assumption Semester.Meta.ordering already relies on).
+
+    Pass/fail isn't a stored field - Grade.letter_grade resolves it live
+    against GradeBand, scoped to this student's own department/programme
+    (see GradeBand's docstring) - each grade's ``student`` is set to the
+    already-loaded instance passed in here, so that lookup doesn't issue
+    a redundant query per grade just to re-fetch the student it already
+    came from.
+
+    Returns a list of {'course', 'failed_grade', 'failed_offering'}
+    dicts, sorted by course code.
+    """
+    latest_by_course = {}
+    for grade in get_published_results_for_student(student):
+        grade.student = student
+        course = grade.course_offering.course
+        sort_key = (grade.course_offering.semester.session.name, grade.course_offering.semester.name)
+        latest = latest_by_course.get(course.id)
+        if latest is None or sort_key > latest['sort_key']:
+            latest_by_course[course.id] = {'course': course, 'grade': grade, 'sort_key': sort_key}
+
+    rows = [
+        {'course': entry['course'], 'failed_grade': entry['grade'], 'failed_offering': entry['grade'].course_offering}
+        for entry in latest_by_course.values()
+        if entry['grade'].letter_grade == 'F'
+    ]
+    rows.sort(key=lambda row: row['course'].code)
+    return rows
 
 
 def get_score_sheet_for_student(student, *, semester=None):
@@ -248,14 +317,32 @@ def get_master_broadsheet(*, programme, semester, level):
 
     rows = []
     for student in students:
-        row_grades = [grades_by_student_course.get((student.id, course.id)) for course in courses]
+        row_grades = []
+        for course in courses:
+            grade = grades_by_student_course.get((student.id, course.id))
+            if grade:
+                # Already have the student loaded - avoids grade.student
+                # issuing its own query just so grade_band can resolve
+                # the department/programme-scoped band (see GradeBand).
+                grade.student = student
+            row_grades.append(grade)
+
         total_points = 0.0
         total_units = 0
+        has_fail = False
         for grade, course in zip(row_grades, courses):
             if grade and grade.grade_point is not None:
                 total_points += float(grade.grade_point) * course.credit_units
                 total_units += course.credit_units
+            if grade and grade.letter_grade == 'F':
+                has_fail = True
         gpa = round(total_points / total_units, 2) if total_units else None
-        rows.append({'student': student, 'grades': row_grades, 'gpa': gpa})
+        remark = compute_broadsheet_remark(gpa, has_fail=has_fail)
+        rows.append({'student': student, 'grades': row_grades, 'gpa': gpa, 'remark': remark})
+
+    # FR-EXM-06: Fail rows sink to the bottom of the sheet - stable sort,
+    # so students sharing a remark stay in the matric-number order the
+    # `students` queryset already produced.
+    rows.sort(key=lambda row: REMARK_ORDER[row['remark']])
 
     return {'courses': courses, 'rows': rows}

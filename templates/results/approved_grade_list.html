@@ -32,34 +32,49 @@
   </div>
 </div>
 
-<div class="card shadow-sm mb-4">
-  <div class="card-header bg-transparent">Course Offerings Ready to Publish</div>
-  <div class="list-group list-group-flush">
-    {% for offering in offerings %}
-    <div class="list-group-item d-flex justify-content-between align-items-center">
-      <div>
-        <span class="badge badge-teal">{{ offering.course.code }}</span> {{ offering.course.title }}
-        <span class="text-muted small">- {{ offering.semester }}</span>
+<form method="post" action="{% url 'results:publish_grades_bulk' %}"
+      onsubmit="return confirm('Publish all approved results for every checked course offering? Students will immediately be able to see them.');">
+  {% csrf_token %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+      <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" id="select-all-offerings"
+               onclick="document.querySelectorAll('.offering-checkbox').forEach(function(cb) { cb.checked = this.checked; }, this)"
+               {% if not offerings %}disabled{% endif %}>
+        <label class="form-check-label fw-semibold" for="select-all-offerings">
+          Course Offerings Ready to Publish - Select/Mark All
+        </label>
       </div>
-      <div class="d-flex gap-2">
-        <a href="{% url 'results:broadsheet_pdf' offering.pk %}" class="btn btn-sm btn-outline-secondary" target="_blank">
-          <i class="bi bi-file-earmark-pdf me-1"></i> PDF
-        </a>
-        <a href="{% url 'results:broadsheet_csv' offering.pk %}" class="btn btn-sm btn-outline-secondary">
-          <i class="bi bi-filetype-csv me-1"></i> CSV
-        </a>
-        <form method="post" action="{% url 'results:publish_grades' offering.pk %}"
-              onsubmit="return confirm('Publish all approved results for {{ offering.course.code }}? Students will immediately be able to see them.');">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-broadcast me-1"></i> Publish</button>
-        </form>
-      </div>
+      <button type="submit" class="btn btn-primary btn-sm" {% if not offerings %}disabled{% endif %}>
+        <i class="bi bi-broadcast me-1"></i> Publish Selected
+      </button>
     </div>
-    {% empty %}
-    <div class="list-group-item text-muted text-center py-4">No offerings with approved, unpublished grades.</div>
-    {% endfor %}
+    <div class="list-group list-group-flush">
+      {% for offering in offerings %}
+      <div class="list-group-item d-flex justify-content-between align-items-center">
+        <div class="form-check mb-0">
+          <input class="form-check-input offering-checkbox" type="checkbox" name="offering_ids"
+                 value="{{ offering.pk }}" id="offering-{{ offering.pk }}">
+          <label class="form-check-label" for="offering-{{ offering.pk }}">
+            <span class="badge badge-teal">{{ offering.course.code }}</span> {{ offering.course.title }}
+            <span class="text-muted small">- {{ offering.semester }}</span>
+          </label>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="{% url 'results:broadsheet_pdf' offering.pk %}" class="btn btn-sm btn-outline-secondary" target="_blank">
+            <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+          </a>
+          <a href="{% url 'results:broadsheet_csv' offering.pk %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-filetype-csv me-1"></i> CSV
+          </a>
+        </div>
+      </div>
+      {% empty %}
+      <div class="list-group-item text-muted text-center py-4">No offerings with approved, unpublished grades.</div>
+      {% endfor %}
+    </div>
   </div>
-</div>
+</form>
 
 <h5 class="mb-3">Approved Grades (Detail)</h5>
 <div class="card shadow-sm">

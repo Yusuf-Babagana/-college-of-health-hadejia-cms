@@ -369,15 +369,25 @@ class ApprovedGradeListView(ExamOfficerRoleMixin, PaginatedListMixin, ListView):
         return context
 
 
-class PublishGradesView(ExamOfficerRoleMixin, View):
-    """FR: only the Exam Officer publishes results - per course offering."""
-    def post(self, request, pk):
-        offering = get_object_or_404(CourseOffering, pk=pk)
-        count = services.publish_grades(offering)
+class PublishGradesBulkView(ExamOfficerRoleMixin, View):
+    """FR-EXM: Select/Mark-all - publish every HOD-approved grade across
+    however many course offerings were checked on the Compile Results
+    page, in one action (one still works fine with just one checked).
+    """
+    def post(self, request):
+        offering_ids = request.POST.getlist('offering_ids')
+        offerings = list(CourseOffering.objects.filter(pk__in=offering_ids))
+        if not offerings:
+            messages.warning(request, 'No course offerings were selected.')
+            return redirect('results:approved_grade_list')
+
+        count = services.publish_grades_for_offerings(offerings)
         if count:
-            messages.success(request, f'Published {count} result(s) for {offering}.')
+            messages.success(
+                request, f'Published {count} result(s) across {len(offerings)} course offering(s).',
+            )
         else:
-            messages.warning(request, 'No approved grades to publish for this offering.')
+            messages.warning(request, 'No approved grades to publish for the selected course offering(s).')
         return redirect('results:approved_grade_list')
 
 
@@ -604,12 +614,13 @@ class MasterBroadsheetExportView(ExamOfficerRoleMixin, View):
 
         writer = csv.writer(response)
         writer.writerow(
-            ['Matric Number', 'Name'] + [course.code for course in broadsheet['courses']] + ['GPA'],
+            ['S/N', 'Matric Number', 'Name'] + [course.code for course in broadsheet['courses']]
+            + ['GPA', 'Remark'],
         )
-        for row in broadsheet['rows']:
+        for serial, row in enumerate(broadsheet['rows'], start=1):
             writer.writerow(
-                [row['student'].matric_number, row['student'].user.get_full_name()]
-                + [(grade.letter_grade if grade else '') for grade in row['grades']]
-                + [row['gpa'] if row['gpa'] is not None else ''],
+                [serial, row['student'].matric_number, row['student'].user.get_full_name()]
+                + [(grade.total_score if grade else '') for grade in row['grades']]
+                + [row['gpa'] if row['gpa'] is not None else '', row['remark']],
             )
         return response

@@ -7,7 +7,9 @@ from .models import Grade, GradeBand
 
 @admin.register(GradeBand)
 class GradeBandAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('letter', 'min_score', 'max_score', 'grade_point', 'is_deleted')
+    list_display = ('letter', 'min_score', 'max_score', 'grade_point', 'department', 'programme', 'is_deleted')
+    list_filter = SoftDeleteAdminMixin.list_filter + ('department',)
+    autocomplete_fields = ('department', 'programme')
     ordering = ('-min_score',)
 
 

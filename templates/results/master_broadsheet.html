@@ -72,26 +72,42 @@
       <table class="table table-sm table-hover align-middle mb-0">
         <thead class="table-light">
           <tr>
+            <th>S/N</th>
             <th>Matric Number</th>
             <th>Name</th>
             {% for course in broadsheet.courses %}
               <th class="text-center">{{ course.code }}</th>
             {% endfor %}
             <th class="text-center">GPA</th>
+            <th class="text-center">Remark</th>
           </tr>
         </thead>
         <tbody>
           {% for row in broadsheet.rows %}
           <tr>
+            <td>{{ forloop.counter }}</td>
             <td><span class="badge badge-teal">{{ row.student.matric_number }}</span></td>
             <td>{{ row.student.user.get_full_name }}</td>
             {% for grade in row.grades %}
-              <td class="text-center">{{ grade.letter_grade|default:'—' }}</td>
+              <td class="text-center">{{ grade.total_score|floatformat:'-2'|default:'—' }}</td>
             {% endfor %}
             <td class="text-center fw-semibold">{{ row.gpa|default:'—' }}</td>
+            <td class="text-center">
+              {% if row.remark == 'Distinction' %}
+                <span class="badge bg-success">Distinction</span>
+              {% elif row.remark == 'Upper Credit' %}
+                <span class="badge bg-primary">Upper Credit</span>
+              {% elif row.remark == 'Lower Credit' %}
+                <span class="badge bg-info text-dark">Lower Credit</span>
+              {% elif row.remark == 'Fail' %}
+                <span class="badge bg-danger">Fail</span>
+              {% else %}
+                <span class="badge bg-secondary">Pending</span>
+              {% endif %}
+            </td>
           </tr>
           {% empty %}
-          <tr><td colspan="{{ broadsheet.courses|length|add:3 }}" class="text-center text-muted py-4">No registered students found for this selection.</td></tr>
+          <tr><td colspan="{{ broadsheet.courses|length|add:5 }}" class="text-center text-muted py-4">No registered students found for this selection.</td></tr>
           {% endfor %}
         </tbody>
       </table>
