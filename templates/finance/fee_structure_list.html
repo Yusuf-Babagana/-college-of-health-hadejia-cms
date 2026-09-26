@@ -73,8 +73,10 @@
         <tr>
           <th>Fee Type</th>
           <th>Department</th>
+          <th>Programme</th>
           <th>Level</th>
           <th>Session</th>
+          <th>Semester</th>
           <th>Amount</th>
           <th>Description</th>
           <th>Status</th>
@@ -86,8 +88,10 @@
         <tr>
           <td><span class="badge bg-info-subtle text-info-emphasis">{{ fs.fee_type.name }}</span></td>
           <td><span class="badge badge-teal">{{ fs.department.code }}</span></td>
+          <td>{{ fs.programme.short_code|default:'All' }}</td>
           <td>{{ fs.get_level_display }}</td>
           <td>{{ fs.session.name }}</td>
+          <td>{{ fs.semester.get_name_display|default:'Whole session' }}</td>
           <td>{{ fs.amount|naira }}</td>
           <td class="small text-muted">{{ fs.description|default:'—' }}</td>
           <td>
@@ -115,7 +119,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" class="text-center text-muted py-4">No fee structures found.</td></tr>
+        <tr><td colspan="10" class="text-center text-muted py-4">No fee structures found.</td></tr>
         {% endfor %}
       </tbody>
     </table>

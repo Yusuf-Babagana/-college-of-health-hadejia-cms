@@ -15,10 +15,10 @@ class FeeTypeAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 @admin.register(FeeStructure)
 class FeeStructureAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('fee_type', 'department', 'level', 'session', 'amount', 'is_deleted')
+    list_display = ('fee_type', 'department', 'programme', 'level', 'session', 'semester', 'amount', 'is_deleted')
     list_filter = SoftDeleteAdminMixin.list_filter + ('fee_type', 'session', 'department', 'level')
     search_fields = ('department__name', 'department__code', 'session__name', 'fee_type__name')
-    autocomplete_fields = ('department', 'session', 'fee_type')
+    autocomplete_fields = ('department', 'programme', 'session', 'semester', 'fee_type')
     ordering = ('-session__name', 'department__code', 'level')
     readonly_fields = ('id', 'created_at', 'updated_at')
 

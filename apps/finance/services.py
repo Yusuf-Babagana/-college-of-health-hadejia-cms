@@ -59,6 +59,8 @@ def bulk_generate_invoices(*, fee_structure, due_date=None):
         level=fee_structure.level,
         status=Student.Status.ACTIVE,
     )
+    if fee_structure.programme_id:
+        students = students.filter(programme=fee_structure.programme_id)
     already_billed_ids = set(
         Invoice.objects.filter(fee_structure=fee_structure).values_list('student_id', flat=True)
     )
@@ -79,6 +81,32 @@ def bulk_generate_invoices(*, fee_structure, due_date=None):
     return len(created), skipped_count
 
 
+def generate_invoices_for_student(*, student, programme, semester, due_date=None):
+    """FR-FIN: student self-service invoice generation - for the given
+    Programme/Semester the student picked, creates an Invoice for every
+    fee type billed to their own department+level+session under that
+    scope (most-specific-wins - see selectors.get_fee_structure_for),
+    skipping anything they're already invoiced for rather than raising.
+    Returns the list of newly created invoices (possibly empty, meaning
+    there was nothing new to bill).
+    """
+    from . import selectors
+    from .models import FeeType
+
+    created = []
+    for fee_type in FeeType.objects.all():
+        fee_structure = selectors.get_fee_structure_for(
+            department=student.department, level=student.level, session=semester.session,
+            fee_type=fee_type, programme=programme, semester=semester,
+        )
+        if not fee_structure:
+            continue
+        if Invoice.objects.filter(student=student, fee_structure=fee_structure).exists():
+            continue
+        created.append(generate_invoice(student=student, fee_structure=fee_structure, due_date=due_date))
+    return created
+
+
 def bulk_generate_invoices_for_all_fee_types(*, department, level, session, due_date=None):
     """Runs bulk_generate_invoices once per fee type billed to this
     department/level/session (Tuition, Registration, Practical, Board
@@ -94,6 +122,28 @@ def bulk_generate_invoices_for_all_fee_types(*, department, level, session, due_
     if not fee_structures.exists():
         raise ValidationError(
             'No fee structures exist yet for this department, level, and session.'
+        )
+
+    # This action has no per-student programme/semester context to pick
+    # the right one of several scoped rows for the same fee type (unlike
+    # generate_invoices_for_student, which resolves most-specific-wins per
+    # student) - running it as-is would call bulk_generate_invoices once
+    # per row and double-bill anyone matched by more than one. Refuse
+    # rather than silently over-billing; the Bursar should generate those
+    # fee types individually (FR-FIN-02) so each row's own programme/
+    # semester scope is respected.
+    fee_type_counts = {}
+    for fee_structure in fee_structures:
+        fee_type_counts[fee_structure.fee_type_id] = fee_type_counts.get(fee_structure.fee_type_id, 0) + 1
+    duplicated = [
+        fee_structure.fee_type.name for fee_structure in fee_structures
+        if fee_type_counts[fee_structure.fee_type_id] > 1
+    ]
+    if duplicated:
+        raise ValidationError(
+            'More than one fee structure covers the same fee type for this department/level/'
+            'session ({}) - generate those individually so each one\'s programme/semester '
+            'scope is respected.'.format(', '.join(sorted(set(duplicated))))
         )
 
     breakdown = []

@@ -15,7 +15,7 @@ def get_active_fee_types():
 
 def get_fee_structure_list(*, session=None, department=None, level=None, fee_type=None, include_archived=False):
     manager = FeeStructure.all_objects if include_archived else FeeStructure.objects
-    qs = manager.select_related('department', 'session', 'fee_type')
+    qs = manager.select_related('department', 'programme', 'session', 'semester', 'fee_type')
 
     if session:
         qs = qs.filter(session_id=session)
@@ -29,12 +29,32 @@ def get_fee_structure_list(*, session=None, department=None, level=None, fee_typ
     return qs
 
 
-def get_fee_structure_for(*, department, level, session, fee_type):
+def get_fee_structure_for(*, department, level, session, fee_type, programme=None, semester=None):
     """Used by invoice generation to look up what a given student owes
-    for a specific fee type (Tuition, Practical, Board Exam, etc.)."""
-    return FeeStructure.objects.filter(
-        department=department, level=level, session=session, fee_type=fee_type,
-    ).first()
+    for a specific fee type (Tuition, Practical, Board Exam, etc.).
+
+    Most-specific-wins, same resolution style as results.GradeBand: a
+    fee scoped to this exact Programme+Semester beats one scoped to just
+    the Programme, which beats one scoped to just the Semester, which
+    beats the department/session-wide default (both blank). Programme/
+    Semester are independent optional axes - Programme is checked first
+    on ties since it tends to be the more consequential differentiator.
+    """
+    base = FeeStructure.objects.filter(department=department, level=level, session=session, fee_type=fee_type)
+
+    if programme and semester:
+        match = base.filter(programme=programme, semester=semester).first()
+        if match:
+            return match
+    if programme:
+        match = base.filter(programme=programme, semester__isnull=True).first()
+        if match:
+            return match
+    if semester:
+        match = base.filter(programme__isnull=True, semester=semester).first()
+        if match:
+            return match
+    return base.filter(programme__isnull=True, semester__isnull=True).first()
 
 
 def get_invoice_list(*, session=None, department=None, level=None, status=None, fee_type=None, include_archived=False):
