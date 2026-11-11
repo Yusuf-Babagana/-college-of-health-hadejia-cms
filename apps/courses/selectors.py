@@ -18,7 +18,7 @@ def get_current_offering_for_course(course):
     """
     from apps.academics.selectors import get_semester_for_level
 
-    semester = get_semester_for_level(course.level)
+    semester = get_semester_for_level(course.level, course.programme_id)
     if not semester:
         return None
     return CourseOffering.objects.filter(course=course, semester=semester).first()

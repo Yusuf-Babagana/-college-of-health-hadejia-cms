@@ -100,7 +100,7 @@ class CourseOfferingForm(CrispyFormMixin, forms.ModelForm):
         elif course:
             from apps.academics.selectors import get_semester_for_level
 
-            semester = get_semester_for_level(course.level)
+            semester = get_semester_for_level(course.level, course.programme_id)
             if semester is None:
                 self.add_error(
                     'course',

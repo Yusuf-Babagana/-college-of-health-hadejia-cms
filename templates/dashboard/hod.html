@@ -16,7 +16,7 @@
   <p class="text-muted mb-4">
     Head of Department, <strong>{{ department.name }}</strong> ({{ department.code }})
     {% for state in level_states %}
-      &middot; {{ state.get_level_display }}: {{ state.semester.get_name_display }}
+      &middot; {{ state.get_level_display }}{% if state.programme_id %} ({{ state.programme.short_code }}){% endif %}: {{ state.semester.get_name_display }}
     {% empty %}
       &middot; <span class="text-danger">No semester in progress</span>
     {% endfor %}

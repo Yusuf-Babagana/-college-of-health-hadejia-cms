@@ -70,7 +70,7 @@
               <span class="badge bg-secondary">Archived</span>
             {% else %}
               {% for state in semester.level_states.all %}
-                <span class="badge bg-success">{{ state.get_level_display }}</span>
+                <span class="badge bg-success">{{ state.get_level_display }}{% if state.programme_id %} ({{ state.programme.short_code }}){% endif %}</span>
               {% empty %}
                 <span class="badge bg-light text-dark border">No levels</span>
               {% endfor %}
