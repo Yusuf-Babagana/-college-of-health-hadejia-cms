@@ -37,6 +37,14 @@
         </select>
       </div>
       <div class="col-md-2">
+        <select name="programme" class="form-select">
+          <option value="">All Programs</option>
+          {% for programme in programmes %}
+            <option value="{{ programme.pk }}" {% if programme.pk|stringformat:'s' == current_programme %}selected{% endif %}>{{ programme.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
         <select name="department" class="form-select">
           <option value="">All Departments</option>
           {% for dept in departments %}
@@ -73,12 +81,13 @@
         <tr>
           <th>Fee Type</th>
           <th>Department</th>
-          <th>Programme</th>
+          <th>Program</th>
           <th>Level</th>
           <th>Session</th>
           <th>Semester</th>
           <th>Amount</th>
-          <th>Description</th>
+          <th>Title</th>
+          <th>Deadline</th>
           <th>Status</th>
           <th class="text-end">Actions</th>
         </tr>
@@ -88,20 +97,24 @@
         <tr>
           <td><span class="badge bg-info-subtle text-info-emphasis">{{ fs.fee_type.name }}</span></td>
           <td><span class="badge badge-teal">{{ fs.department.code }}</span></td>
-          <td>{{ fs.programme.short_code|default:'All' }}</td>
+          <td>{{ fs.programme.name|default:'All programs' }}</td>
           <td>{{ fs.get_level_display }}</td>
           <td>{{ fs.session.name }}</td>
           <td>{{ fs.semester.get_name_display|default:'Whole session' }}</td>
           <td>{{ fs.amount|naira }}</td>
           <td class="small text-muted">{{ fs.description|default:'—' }}</td>
+          <td class="small">{{ fs.due_date|default:'—' }}</td>
           <td>
             {% if fs.is_deleted %}
               <span class="badge bg-secondary">Archived</span>
             {% else %}
-              <span class="badge bg-success">Active</span>
+              {% if fs.is_published %}<span class="badge bg-success">Published</span>{% else %}<span class="badge bg-warning text-dark">Unpublished</span>{% endif %}
             {% endif %}
           </td>
           <td class="text-end">
+            <a href="{% url 'finance:fee_structure_students' fs.pk %}" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-people"></i> Students
+            </a>
             {% if not fs.is_deleted %}
               <a href="{% url 'finance:fee_structure_update' fs.pk %}" class="btn btn-sm btn-outline-primary">
                 <i class="bi bi-pencil-square"></i> Edit
@@ -119,7 +132,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="10" class="text-center text-muted py-4">No fee structures found.</td></tr>
+        <tr><td colspan="11" class="text-center text-muted py-4">No fee structures found.</td></tr>
         {% endfor %}
       </tbody>
     </table>

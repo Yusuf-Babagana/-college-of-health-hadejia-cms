@@ -23,7 +23,10 @@ urlpatterns = [
         name='fee_structure_archive_toggle',
     ),
 
+    path('fee-structures/<uuid:pk>/students/', views.FeeStructureStudentsView.as_view(), name='fee_structure_students'),
+
     path('invoices/', views.InvoiceListView.as_view(), name='invoice_list'),
+    path('reports/programmes/', views.ProgrammeInvoiceReportView.as_view(), name='programme_report'),
     path('invoices/generate/bulk/', views.BulkInvoiceGenerateView.as_view(), name='invoice_generate_bulk'),
     path(
         'invoices/generate/bulk-all-fee-types/',
@@ -33,7 +36,6 @@ urlpatterns = [
     path('invoices/generate/individual/', views.IndividualInvoiceGenerateView.as_view(), name='invoice_generate_individual'),
 
     path('my-invoices/', views.MyInvoicesView.as_view(), name='my_invoices'),
-    path('my-invoices/generate/', views.GenerateMyInvoiceView.as_view(), name='generate_my_invoice'),
     path('my-invoices/<uuid:pk>/pay/', views.InitiateOnlinePaymentView.as_view(), name='initiate_payment'),
     path('payments/callback/', views.PaymentCallbackView.as_view(), name='payment_callback'),
     path('payments/webhook/', views.PaystackWebhookView.as_view(), name='payment_webhook'),

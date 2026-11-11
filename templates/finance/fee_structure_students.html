@@ -1,0 +1,53 @@
+{% extends 'dashboard_base.html' %}
+{% load format_tags %}
+
+{% block title %}Eligible Students · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}
+  <li class="breadcrumb-item"><a href="{% url 'finance:fee_structure_list' %}">Fee Structures</a></li>
+  <li class="breadcrumb-item active">Eligible Students</li>
+{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Eligible Students</h4>
+<p class="text-muted mb-3">
+  {{ fee_structure.fee_type.name }}{% if fee_structure.description %} — {{ fee_structure.description }}{% endif %} ·
+  {{ fee_structure.programme.name|default:'All programs' }} · {{ fee_structure.get_level_display }} ·
+  {{ fee_structure.session.name }} · {{ fee_structure.semester.get_name_display|default:'Whole session' }} ·
+  {{ fee_structure.amount|naira }}
+  {% if not fee_structure.is_published %}<span class="badge bg-warning text-dark ms-1">Unpublished</span>{% endif %}
+</p>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Student</th><th>Invoice No.</th><th>Amount Due</th><th>Paid</th><th>Balance</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><span class="badge badge-teal">{{ row.student.matric_number }}</span> {{ row.student.user.get_full_name }}</td>
+          {% if row.invoice %}
+            <td class="small text-muted">{{ row.invoice.invoice_number|default:'—' }}</td>
+            <td>{{ row.invoice.amount_due|naira }}</td>
+            <td>{{ row.invoice.amount_paid|naira }}</td>
+            <td>{{ row.invoice.balance|naira }}</td>
+            <td>
+              {% if row.invoice.status == 'paid' %}<span class="badge bg-success">Paid</span>
+              {% elif row.invoice.status == 'partially_paid' %}<span class="badge bg-warning text-dark">Partially Paid</span>
+              {% else %}<span class="badge bg-secondary">Unpaid</span>{% endif %}
+            </td>
+          {% else %}
+            <td colspan="4" class="text-muted small">Not generated yet - appears when the student opens My Invoices or the fee is re-saved.</td>
+            <td><span class="badge bg-light text-dark border">No invoice</span></td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No eligible students.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include 'partials/_pagination.html' %}
+{% endblock %}

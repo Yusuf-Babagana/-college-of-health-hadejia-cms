@@ -1,5 +1,5 @@
 {% extends 'dashboard_base.html' %}
-{% load crispy_forms_tags format_tags %}
+{% load format_tags %}
 
 {% block title %}Pay Invoice · {{ COLLEGE_SHORT_NAME }}{% endblock %}
 {% block breadcrumb_items %}
@@ -13,7 +13,8 @@
 
     <div class="card shadow-sm mb-3">
       <div class="card-body p-4">
-        <h5 class="card-title mb-1">{{ invoice.fee_structure.fee_type.name }}</h5>
+        <h5 class="card-title mb-1">{{ invoice.fee_structure.fee_type.name }}{% if invoice.fee_structure.description %} — {{ invoice.fee_structure.description }}{% endif %}</h5>
+        <p class="text-muted small mb-1">Invoice {{ invoice.invoice_number|default:"—" }}</p>
         <p class="text-muted small mb-3">
           {{ invoice.fee_structure.department.code }} · {{ invoice.fee_structure.get_level_display }} ·
           {{ invoice.fee_structure.session.name }}
@@ -44,11 +45,17 @@
     <div class="card shadow-sm mb-3">
       <div class="card-body p-4">
         <h6 class="card-title mb-1">Make a Payment</h6>
-        <p class="text-muted small mb-4">
-          Pay off this invoice in full, or make a part payment now and clear the rest later.
-          Your balance updates automatically after every successful payment.
+        <p class="text-muted small mb-3">
+          You will be charged <strong>{{ invoice.balance|naira }}</strong> for this invoice only. Other invoices
+          or balances are separate and are not included.
         </p>
-        {% crispy form %}
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-credit-card me-1"></i> Pay {{ invoice.balance|naira }} with Paystack
+          </button>
+          <a href="{% url 'finance:my_invoices' %}" class="btn btn-outline-secondary ms-1">Cancel</a>
+        </form>
       </div>
     </div>
 
@@ -95,25 +102,4 @@
   </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  var radios = document.querySelectorAll('input[name="payment_type"]');
-  var amountField = document.getElementById('id_amount');
-  var amountGroup = amountField ? amountField.closest('.mb-3, .form-group') : null;
-
-  function syncAmountField() {
-    var partialSelected = document.querySelector('input[name="payment_type"]:checked')?.value === 'partial';
-    if (!amountField) return;
-    amountField.disabled = !partialSelected;
-    amountField.required = partialSelected;
-    if (amountGroup) amountGroup.style.opacity = partialSelected ? '1' : '0.5';
-    if (!partialSelected) amountField.value = '';
-  }
-
-  radios.forEach(function (radio) {
-    radio.addEventListener('change', syncAmountField);
-  });
-  syncAmountField();
-});
-</script>
 {% endblock %}

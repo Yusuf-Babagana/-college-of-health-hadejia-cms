@@ -15,25 +15,12 @@
 {% else %}
   <p class="text-muted mb-4">{{ student_profile.matric_number }} - {{ student_profile.department.name }}</p>
 
-  <div class="card shadow-sm mb-4">
-    <div class="card-header bg-transparent">Generate Invoice</div>
-    <div class="card-body">
-      {% if generate_form.fields.semester.queryset.exists %}
-        {% crispy generate_form %}
-      {% else %}
-        <p class="text-muted small mb-0">
-          No semester is currently running for your level yet - check back once the Registrar sets one.
-        </p>
-      {% endif %}
-    </div>
-  </div>
-
   <div class="card shadow-sm">
     <div class="table-responsive">
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th>Fee Structure</th>
+            <th>Invoice</th>
             <th>Amount Due</th>
             <th>Amount Paid</th>
             <th>Balance</th>
@@ -45,7 +32,10 @@
         <tbody>
           {% for invoice in invoices %}
           <tr>
-            <td>{{ invoice.fee_structure }}</td>
+            <td>
+              <div class="fw-semibold">{{ invoice.fee_structure.fee_type.name }}{% if invoice.fee_structure.description %} — {{ invoice.fee_structure.description }}{% endif %}</div>
+              <div class="small text-muted">{{ invoice.invoice_number|default:'—' }} · {{ invoice.fee_structure.session.name }}{% if invoice.fee_structure.semester %} · {{ invoice.fee_structure.semester.get_name_display }}{% endif %}</div>
+            </td>
             <td>{{ invoice.amount_due|naira }}</td>
             <td>{{ invoice.amount_paid|naira }}</td>
             <td class="fw-semibold">{{ invoice.balance|naira }}</td>
@@ -65,13 +55,13 @@
             <td class="text-end">
               {% if invoice.status != 'paid' %}
                 <a href="{% url 'finance:initiate_payment' invoice.pk %}" class="btn btn-sm btn-primary">
-                  <i class="bi bi-credit-card"></i> Pay
+                  <i class="bi bi-credit-card"></i> Pay {{ invoice.balance|naira }}
                 </a>
               {% endif %}
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="text-center text-muted py-4">No invoices yet.</td></tr>
+          <tr><td colspan="7" class="text-center text-muted py-4">No invoices yet. Invoices for your programme, level and current semester appear here automatically.</td></tr>
           {% endfor %}
         </tbody>
       </table>

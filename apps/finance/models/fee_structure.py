@@ -58,7 +58,16 @@ class FeeStructure(BaseModel):
     )
     description = models.CharField(
         max_length=200, blank=True,
-        help_text='e.g. Library + Sports Levy',
+        help_text='Invoice title / description shown to students, e.g. Library + Sports Levy',
+    )
+    due_date = models.DateField(
+        null=True, blank=True,
+        help_text='Payment deadline copied onto each invoice generated from this fee.',
+    )
+    is_published = models.BooleanField(
+        default=True,
+        help_text='Only published fees generate invoices and are visible/payable by students. '
+                  'Untick to deactivate without archiving.',
     )
 
     class Meta:

@@ -15,7 +15,7 @@ class FeeTypeAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 @admin.register(FeeStructure)
 class FeeStructureAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('fee_type', 'department', 'programme', 'level', 'session', 'semester', 'amount', 'is_deleted')
+    list_display = ('fee_type', 'department', 'programme', 'level', 'session', 'semester', 'amount', 'due_date', 'is_published', 'is_deleted')
     list_filter = SoftDeleteAdminMixin.list_filter + ('fee_type', 'session', 'department', 'level')
     search_fields = ('department__name', 'department__code', 'session__name', 'fee_type__name')
     autocomplete_fields = ('department', 'programme', 'session', 'semester', 'fee_type')
@@ -25,12 +25,12 @@ class FeeStructureAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 @admin.register(Invoice)
 class InvoiceAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('student', 'fee_structure', 'amount_due', 'amount_paid', 'status', 'due_date', 'is_deleted')
+    list_display = ('invoice_number', 'student', 'fee_structure', 'amount_due', 'amount_paid', 'status', 'due_date', 'is_deleted')
     list_filter = SoftDeleteAdminMixin.list_filter + ('status', 'fee_structure__session', 'fee_structure__department')
-    search_fields = ('student__matric_number', 'student__user__first_name', 'student__user__last_name')
+    search_fields = ('invoice_number', 'student__matric_number', 'student__user__first_name', 'student__user__last_name')
     autocomplete_fields = ('student', 'fee_structure')
     ordering = ('-issued_date',)
-    readonly_fields = ('id', 'issued_date', 'created_at', 'updated_at')
+    readonly_fields = ('id', 'invoice_number', 'issued_date', 'created_at', 'updated_at')
 
 
 @admin.register(Payment)
