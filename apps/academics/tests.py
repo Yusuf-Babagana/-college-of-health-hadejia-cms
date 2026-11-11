@@ -109,12 +109,13 @@ class ProgrammeSpecificStateTests(TestCase):
         self.client.post(url, {'remove_programme_state': state.pk})
         self.assertFalse(LevelSemesterState.objects.exists())
 
-    def test_duplicate_default_rows_blocked(self):
+    def test_exact_duplicate_default_rows_blocked_but_other_semesters_allowed(self):
         from django.db import IntegrityError, transaction
 
         LevelSemesterState.objects.create(level=100, semester=self.sem1)
+        LevelSemesterState.objects.create(level=100, semester=self.sem2)  # different semester: allowed
         with self.assertRaises(IntegrityError), transaction.atomic():
-            LevelSemesterState.objects.create(level=100, semester=self.sem2)
+            LevelSemesterState.objects.create(level=100, semester=self.sem1)  # exact duplicate
 
     def test_admin_filters_cascade(self):
         self.client.force_login(self.admin_user)
@@ -142,3 +143,105 @@ class ProgrammeSpecificStateTests(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn('level', form.errors)
+
+
+class LevelStateUniquenessTests(TestCase):
+    """Programme + Level + Semester (which carries its session) is the
+    uniqueness rule - not Programme + Level."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin_user = User.objects.create_superuser(username='root2', password='x', email='r2@x.com')
+        cls.nd_ch = Programme.objects.create(name='ND Community Health', short_code='NDCH', duration_levels=3)
+        cls.nd_nur = Programme.objects.create(name='ND Nursing', short_code='NDN', duration_levels=3)
+        s25 = AcademicSession.objects.create(name='2025/2026', start_date='2025-09-01', end_date='2026-07-31')
+        s26 = AcademicSession.objects.create(name='2026/2027', start_date='2026-09-01', end_date='2027-07-31')
+        cls.first_25 = Semester.objects.create(session=s25, name='first')
+        cls.second_25 = Semester.objects.create(session=s25, name='second')
+        cls.first_26 = Semester.objects.create(session=s26, name='first')
+
+    def add(self, programme, level, semester):
+        state = LevelSemesterState(programme=programme, level=level, semester=semester)
+        state.full_clean()  # model validation incl. constraints - what the admin form runs
+        state.save()
+        return state
+
+    def test_same_programme_and_level_across_semesters_and_sessions_allowed(self):
+        self.add(self.nd_ch, 100, self.first_25)
+        self.add(self.nd_ch, 100, self.second_25)
+        self.add(self.nd_ch, 100, self.first_26)
+        self.add(self.nd_ch, 200, self.first_26)
+        self.add(self.nd_nur, 100, self.first_26)
+        self.assertEqual(LevelSemesterState.objects.filter(programme=self.nd_ch, level=100).count(), 3)
+
+    def test_exact_duplicate_rejected_with_clear_message(self):
+        from django.core.exceptions import ValidationError
+
+        self.add(self.nd_ch, 100, self.first_26)
+        with self.assertRaises(ValidationError) as ctx:
+            self.add(self.nd_ch, 100, self.first_26)
+        self.assertIn('already exists', ' '.join(ctx.exception.messages))
+        self.assertEqual(LevelSemesterState.objects.count(), 1)
+
+    def test_same_semester_for_another_programme_allowed(self):
+        self.add(self.nd_ch, 100, self.first_26)
+        self.add(self.nd_nur, 100, self.first_26)
+        self.assertEqual(LevelSemesterState.objects.count(), 2)
+
+    def test_default_rows_follow_the_same_rule(self):
+        from django.core.exceptions import ValidationError
+
+        self.add(None, 100, self.first_25)
+        self.add(None, 100, self.first_26)
+        with self.assertRaises(ValidationError):
+            self.add(None, 100, self.first_26)
+
+    def test_admin_add_form_allows_new_semester_and_rejects_duplicate(self):
+        self.client.force_login(self.admin_user)
+        url = reverse('admin:academics_levelsemesterstate_add')
+        data = {'programme': self.nd_ch.pk, 'level': 100, 'semester': self.first_25.pk}
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        data['semester'] = self.first_26.pk
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        response = self.client.post(url, data)  # exact duplicate
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already exists')
+        self.assertEqual(LevelSemesterState.objects.filter(programme=self.nd_ch, level=100).count(), 2)
+
+    def test_registrar_page_rejects_duplicate_and_accepts_new_semester(self):
+        registrar = User.objects.create_user(username='reg3', password='x', role=Role.REGISTRAR)
+        self.client.force_login(registrar)
+        url = reverse('academics:level_states')
+        data = {'programme': self.nd_ch.pk, 'level': 100, 'semester': self.first_25.pk}
+        self.client.post(url, data)
+        data['semester'] = self.second_25.pk
+        self.client.post(url, data)
+        response = self.client.post(url, data, follow=True)
+        self.assertContains(response, 'already exists')
+        self.assertEqual(LevelSemesterState.objects.filter(programme=self.nd_ch, level=100).count(), 2)
+
+    def test_current_semester_is_the_latest_and_history_does_not_leak(self):
+        self.add(self.nd_ch, 100, self.first_26)
+        self.add(self.nd_ch, 100, self.first_25)  # added later, but older: history
+        self.add(self.nd_ch, 100, self.second_25)
+        self.assertEqual(selectors.get_semester_for_level(100, self.nd_ch), self.first_26)
+        current = list(selectors.get_level_semester_states())
+        self.assertEqual([s.semester for s in current], [self.first_26])
+        self.assertEqual(set(selectors.get_current_semesters()), {self.first_26})
+        self.assertEqual(LevelSemesterState.objects.count(), 3)  # nothing lost
+
+    def test_clearing_removes_only_the_current_semester(self):
+        self.add(None, 100, self.first_25)
+        self.add(None, 100, self.first_26)
+        removed = services.clear_level_semester(100)
+        self.assertEqual(removed.semester, self.first_26)
+        self.assertEqual(selectors.get_semester_for_level(100), self.first_25)
+        self.assertEqual(LevelSemesterState.objects.count(), 1)
+
+    def test_existing_single_rows_behave_as_before(self):
+        # rows as they existed before this change: one per level
+        LevelSemesterState.objects.create(level=100, semester=self.first_25)
+        LevelSemesterState.objects.create(level=200, semester=self.first_26)
+        self.assertEqual(selectors.get_semester_for_level(100), self.first_25)
+        self.assertEqual(selectors.get_semester_for_level(200, self.nd_ch), self.first_26)
+        self.assertEqual(LevelSemesterState.objects.count(), 2)
