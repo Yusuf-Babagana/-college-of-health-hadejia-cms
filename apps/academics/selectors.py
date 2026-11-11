@@ -25,30 +25,65 @@ def get_semester_list(*, session=None, include_archived=False):
     return qs
 
 
+def _recency_key(state):
+    """Ordering for "which of a scope's states is current": the newest
+    session wins, then the later semester within it (Second over First)."""
+    return (state.semester.session.name, state.semester.name)
+
+
+def _latest(states):
+    return max(states, key=_recency_key, default=None)
+
+
 def get_semester_for_level(level, programme=None):
     """The semester a given student level is currently running, or None
     if the Registrar hasn't opened one for that level. This replaces the
     old single global "active semester" - a student's (or course's)
     current semester is always resolved through their level.
 
+    A level can hold several states over time (one per semester); the
+    current one is the latest by session then semester.
+
     Pass ``programme`` (a Programme or its pk) to honour a
     programme-specific state; with none set - or no programme given -
-    the college-wide default row (programme NULL) applies.
+    the college-wide default (programme NULL) applies.
     """
-    states = LevelSemesterState.objects.filter(level=level).select_related('semester', 'semester__session')
+    states = list(
+        LevelSemesterState.objects.filter(level=level).select_related('semester', 'semester__session')
+    )
     programme_id = getattr(programme, 'pk', programme)
     if programme_id:
-        state = states.filter(programme_id=programme_id).first()
+        state = _latest(s for s in states if s.programme_id == programme_id)
         if state:
             return state.semester
-    state = states.filter(programme__isnull=True).first()
+    state = _latest(s for s in states if s.programme_id is None)
     return state.semester if state else None
 
 
+def _current_state_ids():
+    """pks of the current state per (programme, level) scope."""
+    latest = {}
+    for state in LevelSemesterState.objects.select_related('semester', 'semester__session'):
+        key = (state.programme_id, state.level)
+        if key not in latest or _recency_key(state) > _recency_key(latest[key]):
+            latest[key] = state
+    return [state.pk for state in latest.values()]
+
+
 def get_level_semester_states():
-    """Every level's current semester, for the Registrar's level-state
-    screen and staff dashboards."""
-    return LevelSemesterState.objects.select_related('semester', 'semester__session', 'programme').order_by('level', 'programme__name')
+    """Every level's CURRENT state (one per programme + level scope), for
+    the Registrar's level-state screen and staff dashboards. Older
+    semesters kept as history are excluded - see get_level_state_history."""
+    return LevelSemesterState.objects.filter(pk__in=_current_state_ids()).select_related(
+        'semester', 'semester__session', 'programme',
+    ).order_by('level', 'programme__name')
+
+
+def get_level_state_history():
+    """Every state row, current and past."""
+    return LevelSemesterState.objects.select_related(
+        'semester', 'semester__session', 'programme',
+    ).order_by('level', 'programme__name', '-semester__session__name', '-semester__name')
 
 
 def get_active_programmes():
@@ -80,7 +115,7 @@ def get_current_semesters():
     for views without a single-level context (lecturer workload, results
     fallbacks), where "current" means current for any level.
     """
-    semester_ids = LevelSemesterState.objects.values_list('semester_id', flat=True)
+    semester_ids = LevelSemesterState.objects.filter(pk__in=_current_state_ids()).values_list('semester_id', flat=True)
     return Semester.objects.filter(pk__in=semester_ids).select_related('session')
 
 

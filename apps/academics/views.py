@@ -162,11 +162,17 @@ class LevelSemesterStateView(AcademicManagementRoleMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        all_states = list(selectors.get_level_semester_states())
+        current_ids = {state.pk for state in selectors.get_level_semester_states()}
+        history = list(selectors.get_level_state_history())
+        for state in history:
+            state.is_current = state.pk in current_ids
         # The table's per-level rows are the college-wide defaults (no
-        # programme); programme-specific overrides are listed separately.
-        states_by_level = {state.level: state for state in all_states if state.programme_id is None}
-        context['programme_states'] = [state for state in all_states if state.programme_id]
+        # programme) and show the current one; every programme-specific
+        # row (current and past) is listed separately.
+        states_by_level = {
+            state.level: state for state in history if state.programme_id is None and state.is_current
+        }
+        context['programme_states'] = [state for state in history if state.programme_id]
         context['level_rows'] = [
             {'level': value, 'label': label, 'state': states_by_level.get(value)}
             for value, label in Level.choices
@@ -179,10 +185,15 @@ class LevelSemesterStateView(AcademicManagementRoleMixin, FormView):
     def post(self, request, *args, **kwargs):
         removing = request.POST.get('remove_programme_state')
         if removing:
-            state = LevelSemesterState.objects.filter(pk=removing, programme__isnull=False).first()                 if _is_uuid(removing) else None
+            state = (
+                LevelSemesterState.objects.filter(pk=removing, programme__isnull=False)
+                .select_related('programme', 'semester').first()
+                if _is_uuid(removing) else None
+            )
             if state:
-                services.clear_level_semester(state.level, programme=state.programme)
-                messages.success(request, f'{state.programme} / {state.get_level_display()} now follows the default.')
+                label = f'{state.programme} / {state.get_level_display()} / {state.semester}'
+                state.delete()
+                messages.success(request, f'Removed {label}.')
             return redirect(self.success_url)
         # The Program -> Level -> Semester-Session selector posts a
         # "programme" field; the per-row table forms don't.
@@ -192,11 +203,13 @@ class LevelSemesterStateView(AcademicManagementRoleMixin, FormView):
                 level = form.cleaned_data['level']
                 semester = form.cleaned_data['semester']
                 programme = form.cleaned_data['programme']
-                services.set_level_semester(level, semester, programme=programme)
-                messages.success(
-                    request,
-                    f'{dict(Level.choices)[level]} ({programme}) is now in {semester}.',
-                )
+                try:
+                    services.set_level_semester(level, semester, programme=programme)
+                except ValidationError as exc:
+                    messages.error(request, ' '.join(exc.messages))
+                    return redirect(self.success_url)
+                _report_set(request, f'{dict(Level.choices)[level]} ({programme})', semester,
+                            selectors.get_semester_for_level(level, programme))
                 return redirect(self.success_url)
             for errors in form.errors.values():
                 for error in errors:
@@ -209,12 +222,34 @@ class LevelSemesterStateView(AcademicManagementRoleMixin, FormView):
         semester = form.cleaned_data['semester']
         level_label = dict(form.fields['level'].choices)[level]
         if semester:
-            services.set_level_semester(level, semester)
-            messages.success(self.request, f'{level_label} is now in {semester}.')
+            try:
+                services.set_level_semester(level, semester)
+            except ValidationError as exc:
+                messages.error(self.request, ' '.join(exc.messages))
+                return redirect(self.success_url)
+            _report_set(self.request, level_label, semester, selectors.get_semester_for_level(level))
         else:
-            services.clear_level_semester(level)
-            messages.success(self.request, f'{level_label} now has no semester in progress.')
+            removed = services.clear_level_semester(level)
+            remaining = selectors.get_semester_for_level(level)
+            if not removed:
+                messages.info(self.request, f'{level_label} had no semester in progress.')
+            elif remaining:
+                messages.success(self.request, f'Removed {removed.semester}; {level_label} is now in {remaining}.')
+            else:
+                messages.success(self.request, f'{level_label} now has no semester in progress.')
         return redirect(self.success_url)
+
+
+def _report_set(request, label, semester, current):
+    """A level keeps every semester it was given; the latest is current.
+    Say so plainly when the one just added is history rather than current."""
+    if current == semester:
+        messages.success(request, f'{label} is now in {semester}.')
+    else:
+        messages.warning(
+            request,
+            f'{semester} was recorded for {label}, but {current} is later and remains the current semester.',
+        )
 
 
 def _is_uuid(raw):

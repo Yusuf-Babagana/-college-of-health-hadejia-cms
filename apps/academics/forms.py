@@ -5,7 +5,8 @@ from apps.core.forms import CrispyFormMixin
 
 from apps.admissions.models import Programme
 
-from .models import AcademicSession, Semester
+from .models import AcademicSession, LevelSemesterState, Semester
+from .models.level_state import DUPLICATE_MESSAGE
 
 
 class AcademicSessionForm(CrispyFormMixin, forms.ModelForm):
@@ -66,8 +67,13 @@ class LevelSemesterSelectionForm(forms.Form):
         cleaned = super().clean()
         programme = cleaned.get('programme')
         level = cleaned.get('level')
+        semester = cleaned.get('semester')
         if programme and level and level not in programme.levels:
             self.add_error('level', f'{programme} does not have a {dict(Level.choices)[level]}.')
+        elif programme and level and semester and LevelSemesterState.objects.filter(
+            programme=programme, level=level, semester=semester,
+        ).exists():
+            self.add_error('semester', DUPLICATE_MESSAGE)
         return cleaned
 
 

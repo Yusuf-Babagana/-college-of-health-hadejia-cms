@@ -1,26 +1,43 @@
 """
 Business logic for academic session/semester management.
 """
+from django.core.exceptions import ValidationError
+
 from .models import LevelSemesterState, Semester
+from .models.level_state import DUPLICATE_MESSAGE
 
 
 def set_level_semester(level, semester, programme=None):
-    """Point a student level at its current semester (FR-REG-02, per
-    level: cohorts move at different paces, so each level's current
-    semester is set independently). This is the only place level states
-    should ever be written.
+    """Record a semester for a student level (FR-REG-02, per level:
+    cohorts move at different paces, so each level is set independently).
+    This is the only place level states should ever be written.
+
+    A level may hold many semesters over time; adding one never replaces
+    another. An exact duplicate of Programme + Level + Semester raises a
+    ValidationError (the same rule the database constraint and the admin
+    enforce). The level's current semester is the latest one - see
+    selectors.get_semester_for_level.
     """
-    state, _ = LevelSemesterState.objects.update_or_create(
-        level=level, programme=programme, defaults={'semester': semester},
-    )
-    return state
+    if LevelSemesterState.objects.filter(level=level, programme=programme, semester=semester).exists():
+        raise ValidationError(DUPLICATE_MESSAGE)
+    return LevelSemesterState.objects.create(level=level, programme=programme, semester=semester)
 
 
 def clear_level_semester(level, programme=None):
-    """Put a level into a "no semester in progress" state - e.g. between
-    sessions, before the Registrar opens the next one for that level.
+    """Remove the level's CURRENT semester - e.g. a mistake, or the
+    Registrar closing a semester. Earlier semesters kept as history are
+    untouched (the previous one becomes current). Returns the removed
+    state, or None if the level had none.
     """
-    LevelSemesterState.objects.filter(level=level, programme=programme).delete()
+    from . import selectors
+
+    scope = LevelSemesterState.objects.filter(level=level, programme=programme).select_related(
+        'semester', 'semester__session',
+    )
+    current = selectors._latest(scope)
+    if current:
+        current.delete()
+    return current
 
 
 def set_registration_window(semester, *, start, end):
