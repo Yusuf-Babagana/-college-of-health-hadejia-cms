@@ -5,6 +5,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -12,6 +13,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, FormView, ListView, UpdateView, View
 
+from apps.academics import selectors as academic_selectors
 from apps.academics.selectors import get_active_sessions
 from apps.core.constants import Level, Role
 from apps.core.mixins import PaginatedListMixin, RoleRequiredMixin
@@ -24,9 +26,7 @@ from .forms import (
     FeeStructureForm,
     FeeTypeForm,
     IndividualInvoiceGenerateForm,
-    InitiateOnlinePaymentForm,
     RecordOfflinePaymentForm,
-    StudentInvoiceGenerateForm,
 )
 from .models import FeeStructure, FeeType, Invoice, Payment
 
@@ -111,6 +111,7 @@ class FeeStructureListView(FinanceManagementRoleMixin, PaginatedListMixin, ListV
             department=self.request.GET.get('department'),
             level=self.request.GET.get('level'),
             fee_type=self.request.GET.get('fee_type'),
+            programme=self.request.GET.get('programme'),
             include_archived=self.request.GET.get('archived') == '1',
         )
 
@@ -118,6 +119,8 @@ class FeeStructureListView(FinanceManagementRoleMixin, PaginatedListMixin, ListV
         context = super().get_context_data(**kwargs)
         context['sessions'] = get_active_sessions()
         context['departments'] = get_active_departments()
+        context['programmes'] = academic_selectors.get_active_programmes()
+        context['current_programme'] = self.request.GET.get('programme', '')
         context['fee_types'] = selectors.get_active_fee_types()
         context['level_choices'] = Level.choices
         context['current_session'] = self.request.GET.get('session', '')
@@ -125,6 +128,49 @@ class FeeStructureListView(FinanceManagementRoleMixin, PaginatedListMixin, ListV
         context['current_level'] = self.request.GET.get('level', '')
         context['current_fee_type'] = self.request.GET.get('fee_type', '')
         context['show_archived'] = self.request.GET.get('archived') == '1'
+        return context
+
+
+def _report_generation(request, fee_structure):
+    """Publishing a fee generates invoices for every eligible student -
+    nobody has to request one. Re-saving a published fee is safe: it only
+    bills students who don't already have an invoice (new snapshots of the
+    amount never rewrite existing invoices).
+    """
+    if not fee_structure.is_published:
+        messages.info(request, 'Fee is unpublished: no invoices generated and students cannot see or pay it.')
+        return
+    created, skipped = services.bulk_generate_invoices(fee_structure=fee_structure)
+    messages.success(
+        request,
+        f'{created} new invoice(s) generated for eligible students'
+        + (f' ({skipped} already invoiced).' if skipped else '.'),
+    )
+
+
+class FeeStructureStudentsView(FinanceManagementRoleMixin, PaginatedListMixin, ListView):
+    """Who a fee actually applies to, and where each of them stands."""
+    template_name = 'finance/fee_structure_students.html'
+    context_object_name = 'rows'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.fee_structure = get_object_or_404(
+            FeeStructure.all_objects.select_related('fee_type', 'department', 'programme', 'session', 'semester'),
+            pk=kwargs['pk'],
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        students = selectors.get_eligible_students(self.fee_structure).select_related('user').order_by('matric_number')
+        invoices = {
+            invoice.student_id: invoice
+            for invoice in Invoice.objects.filter(fee_structure=self.fee_structure)
+        }
+        return [{'student': student, 'invoice': invoices.get(student.pk)} for student in students]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['fee_structure'] = self.fee_structure
         return context
 
 
@@ -140,8 +186,10 @@ class FeeStructureCreateView(FinanceManagementRoleMixin, CreateView):
         return context
 
     def form_valid(self, form):
-        messages.success(self.request, f'Fee structure "{form.instance}" created.')
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, f'Fee structure "{self.object}" created.')
+        _report_generation(self.request, self.object)
+        return response
 
 
 class FeeStructureUpdateView(FinanceManagementRoleMixin, UpdateView):
@@ -156,8 +204,10 @@ class FeeStructureUpdateView(FinanceManagementRoleMixin, UpdateView):
         return context
 
     def form_valid(self, form):
-        messages.success(self.request, f'Fee structure "{form.instance}" updated.')
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, f'Fee structure "{self.object}" updated.')
+        _report_generation(self.request, self.object)
+        return response
 
 
 class FeeStructureArchiveToggleView(FinanceManagementRoleMixin, View):
@@ -184,6 +234,8 @@ class InvoiceListView(FinanceManagementRoleMixin, PaginatedListMixin, ListView):
             level=self.request.GET.get('level'),
             status=self.request.GET.get('status'),
             fee_type=self.request.GET.get('fee_type'),
+            programme=self.request.GET.get('programme'),
+            search=self.request.GET.get('q'),
             include_archived=self.request.GET.get('archived') == '1',
         )
 
@@ -191,6 +243,9 @@ class InvoiceListView(FinanceManagementRoleMixin, PaginatedListMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['sessions'] = get_active_sessions()
         context['departments'] = get_active_departments()
+        context['programmes'] = academic_selectors.get_active_programmes()
+        context['current_programme'] = self.request.GET.get('programme', '')
+        context['current_q'] = self.request.GET.get('q', '')
         context['fee_types'] = selectors.get_active_fee_types()
         context['level_choices'] = Level.choices
         context['status_choices'] = Invoice.Status.choices
@@ -210,10 +265,14 @@ class BulkInvoiceGenerateView(FinanceManagementRoleMixin, FormView):
     success_url = reverse_lazy('finance:invoice_list')
 
     def form_valid(self, form):
-        created_count, skipped_count = services.bulk_generate_invoices(
-            fee_structure=form.cleaned_data['fee_structure'],
-            due_date=form.cleaned_data['due_date'],
-        )
+        try:
+            created_count, skipped_count = services.bulk_generate_invoices(
+                fee_structure=form.cleaned_data['fee_structure'],
+                due_date=form.cleaned_data['due_date'],
+            )
+        except ValidationError as exc:
+            form.add_error(None, exc.message)
+            return self.form_invalid(form)
         if created_count:
             messages.success(
                 self.request,
@@ -224,7 +283,7 @@ class BulkInvoiceGenerateView(FinanceManagementRoleMixin, FormView):
         else:
             messages.warning(
                 self.request,
-                'No invoices were generated - every matching active student already has one for this fee structure.',
+                'No invoices were generated - there are no eligible students without one for this fee structure.',
             )
         return redirect(self.success_url)
 
@@ -291,9 +350,11 @@ class IndividualInvoiceGenerateView(FinanceManagementRoleMixin, FormView):
 
 
 class MyInvoicesView(RoleRequiredMixin, ListView):
-    """FR-FIN-04 (student-facing half): a student's own invoices, so they
-    can actually see what they owe and pay it. Also carries the
-    Generate Invoice form (Programme + Semester) at the top of the page.
+    """FR-FIN-04 (student-facing half): a student's own invoices. Invoices
+    for every published fee that applies to the student's programme,
+    level and current semester/session appear automatically - nothing to
+    search for or request. Enforced here on the backend, not in the
+    template.
     """
     allowed_roles = (Role.STUDENT,)
     template_name = 'finance/my_invoices.html'
@@ -303,52 +364,13 @@ class MyInvoicesView(RoleRequiredMixin, ListView):
         student_profile = getattr(self.request.user, 'student_profile', None)
         if not student_profile:
             return Invoice.objects.none()
+        services.sync_invoices_for_student(student_profile)
         return selectors.get_invoices_for_student(student_profile)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        student_profile = getattr(self.request.user, 'student_profile', None)
-        context['student_profile'] = student_profile
-        if student_profile:
-            context['generate_form'] = StudentInvoiceGenerateForm(student=student_profile)
+        context['student_profile'] = getattr(self.request.user, 'student_profile', None)
         return context
-
-
-class GenerateMyInvoiceView(RoleRequiredMixin, View):
-    """FR-FIN: student self-service invoice generation - picks a
-    Programme and Semester, and every fee type billed to their own
-    department+level+session under that scope gets invoiced in one go
-    (skipping anything they already have an invoice for).
-    """
-    allowed_roles = (Role.STUDENT,)
-
-    def post(self, request):
-        student_profile = getattr(request.user, 'student_profile', None)
-        if not student_profile:
-            messages.error(request, 'No student profile linked to your account.')
-            return redirect('finance:my_invoices')
-
-        form = StudentInvoiceGenerateForm(request.POST, student=student_profile)
-        if not form.is_valid():
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, error)
-            return redirect('finance:my_invoices')
-
-        try:
-            created = services.generate_invoices_for_student(
-                student=student_profile,
-                programme=form.cleaned_data['programme'],
-                semester=form.cleaned_data['semester'],
-            )
-        except ValidationError as exc:
-            messages.error(request, exc.message)
-        else:
-            if created:
-                messages.success(request, f'Generated {len(created)} invoice(s).')
-            else:
-                messages.info(request, 'No new invoices - either none are billed for this selection, or you already have them.')
-        return redirect('finance:my_invoices')
 
 
 class PaymentListView(FinanceManagementRoleMixin, PaginatedListMixin, ListView):
@@ -366,10 +388,18 @@ class PaymentListView(FinanceManagementRoleMixin, PaginatedListMixin, ListView):
             qs = qs.filter(method=method)
         if status:
             qs = qs.filter(status=status)
+        search = self.request.GET.get('q')
+        if search:
+            qs = qs.filter(
+                Q(reference__icontains=search)
+                | Q(invoice__invoice_number__icontains=search)
+                | Q(invoice__student__matric_number__icontains=search)
+            )
         return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['current_q'] = self.request.GET.get('q', '')
         context['method_choices'] = Payment.Method.choices
         context['status_choices'] = Payment.Status.choices
         context['current_method'] = self.request.GET.get('method', '')
@@ -427,11 +457,10 @@ class VerifyOnlinePaymentView(FinanceManagementRoleMixin, View):
 
 
 class InitiateOnlinePaymentView(RoleRequiredMixin, View):
-    """Student picks full balance vs. a part payment, then is redirected
-    to Paystack's hosted checkout for that amount. GET shows the choice;
-    POST processes it - this can't be a plain FormView because the form
-    itself needs the invoice (to validate the amount against its balance)
-    before it can be built.
+    """Student confirms payment of ONE invoice, then is redirected to
+    Paystack for exactly that invoice's outstanding balance - no other
+    invoice, arrears or obligation is ever added to it. GET shows the
+    confirmation; POST starts the checkout.
     """
     allowed_roles = (Role.STUDENT,)
     template_name = 'finance/initiate_payment.html'
@@ -440,9 +469,7 @@ class InitiateOnlinePaymentView(RoleRequiredMixin, View):
         student_profile = getattr(request.user, 'student_profile', None)
         if not student_profile:
             return None
-        return Invoice.objects.filter(pk=pk, student=student_profile).select_related(
-            'fee_structure', 'fee_structure__fee_type', 'fee_structure__session',
-        ).first()
+        return selectors.get_invoices_for_student(student_profile).filter(pk=pk).first()
 
     def get(self, request, pk):
         invoice = self.get_invoice(request, pk)
@@ -452,9 +479,7 @@ class InitiateOnlinePaymentView(RoleRequiredMixin, View):
         if invoice.balance <= 0:
             messages.info(request, 'This invoice has no outstanding balance.')
             return redirect('finance:my_invoices')
-
-        form = InitiateOnlinePaymentForm(invoice=invoice)
-        return render(request, self.template_name, {'form': form, 'invoice': invoice})
+        return render(request, self.template_name, {'invoice': invoice})
 
     def post(self, request, pk):
         invoice = self.get_invoice(request, pk)
@@ -462,21 +487,16 @@ class InitiateOnlinePaymentView(RoleRequiredMixin, View):
             messages.error(request, 'Invoice not found.')
             return redirect('finance:my_invoices')
 
-        form = InitiateOnlinePaymentForm(request.POST, invoice=invoice)
-        if not form.is_valid():
-            return render(request, self.template_name, {'form': form, 'invoice': invoice})
-
         callback_url = request.build_absolute_uri(reverse('finance:payment_callback'))
         try:
             authorization_url = services.initiate_online_payment(
                 invoice=invoice,
                 email=request.user.email,
                 callback_url=callback_url,
-                amount=form.cleaned_data['amount'],
             )
         except (ValidationError, paystack.PaystackError) as exc:
-            form.add_error(None, str(exc))
-            return render(request, self.template_name, {'form': form, 'invoice': invoice})
+            messages.error(request, ' '.join(exc.messages) if isinstance(exc, ValidationError) else str(exc))
+            return redirect('finance:my_invoices')
 
         return redirect(authorization_url)
 
@@ -574,3 +594,16 @@ class DefaulterExportView(FinanceManagementRoleMixin, View):
                 invoice.due_date,
             ])
         return response
+
+
+class ProgrammeInvoiceReportView(FinanceManagementRoleMixin, View):
+    """Invoice generation and payment performance per programme."""
+    template_name = 'finance/programme_report.html'
+
+    def get(self, request):
+        session = request.GET.get('session') or None
+        return render(request, self.template_name, {
+            'report': selectors.get_programme_invoice_report(session=session),
+            'sessions': get_active_sessions(),
+            'current_session': request.GET.get('session', ''),
+        })

@@ -1,6 +1,8 @@
 """
 Read-only queries for fee structures and invoices.
 """
+from django.db import models
+
 from .models import FeeStructure, FeeType, Invoice
 
 
@@ -13,7 +15,7 @@ def get_active_fee_types():
     return FeeType.objects.all()
 
 
-def get_fee_structure_list(*, session=None, department=None, level=None, fee_type=None, include_archived=False):
+def get_fee_structure_list(*, session=None, department=None, level=None, fee_type=None, programme=None, include_archived=False):
     manager = FeeStructure.all_objects if include_archived else FeeStructure.objects
     qs = manager.select_related('department', 'programme', 'session', 'semester', 'fee_type')
 
@@ -25,6 +27,8 @@ def get_fee_structure_list(*, session=None, department=None, level=None, fee_typ
         qs = qs.filter(level=level)
     if fee_type:
         qs = qs.filter(fee_type_id=fee_type)
+    if programme:
+        qs = qs.filter(programme_id=programme)
 
     return qs
 
@@ -40,7 +44,9 @@ def get_fee_structure_for(*, department, level, session, fee_type, programme=Non
     Semester are independent optional axes - Programme is checked first
     on ties since it tends to be the more consequential differentiator.
     """
-    base = FeeStructure.objects.filter(department=department, level=level, session=session, fee_type=fee_type)
+    base = FeeStructure.objects.filter(
+        department=department, level=level, session=session, fee_type=fee_type, is_published=True,
+    )
 
     if programme and semester:
         match = base.filter(programme=programme, semester=semester).first()
@@ -57,7 +63,65 @@ def get_fee_structure_for(*, department, level, session, fee_type, programme=Non
     return base.filter(programme__isnull=True, semester__isnull=True).first()
 
 
-def get_invoice_list(*, session=None, department=None, level=None, status=None, fee_type=None, include_archived=False):
+def resolve_fee_structure_for_scope(*, department, level, programme_id, fee_type):
+    """The one published FeeStructure that bills a student in this
+    department/level/programme for a fee type right now - or None. The
+    semester and session come from the level's current semester (see
+    academics.selectors.get_semester_for_level), so a fee for another
+    session or semester never matches. Most-specific-wins applies, so a
+    student is only ever billed one fee structure per fee type.
+    """
+    from apps.academics.selectors import get_semester_for_level
+
+    semester = get_semester_for_level(level, programme_id)
+    if semester is None:
+        return None
+    return get_fee_structure_for(
+        department=department, level=level, session=semester.session,
+        fee_type=fee_type, programme=programme_id, semester=semester,
+    )
+
+
+def get_eligible_students(fee_structure):
+    """Active students this fee structure actually bills: right
+    department, level and programme (a fee with no programme covers the
+    whole department), whose level is currently running the fee's
+    session/semester, and for whom this fee is the most specific match.
+    Single source of truth for generation, the eligible-students screen
+    and the student invoice list.
+    """
+    from django.db.models import Q
+
+    from apps.students.models import Student
+
+    if not fee_structure.is_published:
+        return Student.objects.none()
+
+    candidates = Student.objects.filter(
+        department=fee_structure.department_id, level=fee_structure.level, status=Student.Status.ACTIVE,
+    )
+    if fee_structure.programme_id:
+        candidates = candidates.filter(programme=fee_structure.programme_id)
+
+    matching_programmes = [
+        programme_id
+        for programme_id in candidates.values_list('programme_id', flat=True).distinct()
+        if resolve_fee_structure_for_scope(
+            department=fee_structure.department_id, level=fee_structure.level,
+            programme_id=programme_id, fee_type=fee_structure.fee_type_id,
+        ) == fee_structure
+    ]
+    if not matching_programmes:
+        return Student.objects.none()
+
+    query = Q(programme_id__in=[pk for pk in matching_programmes if pk is not None])
+    if None in matching_programmes:
+        query |= Q(programme__isnull=True)
+    return candidates.filter(query)
+
+
+def get_invoice_list(*, session=None, department=None, level=None, status=None, fee_type=None,
+                     programme=None, search=None, include_archived=False):
     manager = Invoice.all_objects if include_archived else Invoice.objects
     qs = manager.select_related(
         'student', 'student__user', 'fee_structure',
@@ -74,15 +138,70 @@ def get_invoice_list(*, session=None, department=None, level=None, status=None, 
         qs = qs.filter(fee_structure__fee_type_id=fee_type)
     if status:
         qs = qs.filter(status=status)
+    if programme:
+        qs = qs.filter(fee_structure__programme_id=programme)
+    if search:
+        qs = qs.filter(
+            models.Q(invoice_number__icontains=search) | models.Q(student__matric_number__icontains=search)
+        )
 
     return qs
 
 
 def get_invoices_for_student(student):
-    return Invoice.objects.filter(student=student).select_related('fee_structure', 'fee_structure__session')
+    """A student's own invoices. Backend-enforced: only rows owned by
+    this student, and never one whose fee has been deactivated
+    (unpublished) unless money has already been paid against it - that
+    history stays visible.
+    """
+    return Invoice.objects.filter(student=student).filter(
+        models.Q(fee_structure__is_published=True) | models.Q(amount_paid__gt=0),
+    ).select_related('fee_structure', 'fee_structure__session', 'fee_structure__fee_type')
+
+
+def get_programme_invoice_report(*, session=None):
+    """Invoice generation and payment performance per programme (fees
+    with no programme are grouped as 'All programmes')."""
+    from django.db.models import Count, Q, Sum
+
+    qs = Invoice.objects.all()
+    if session:
+        qs = qs.filter(fee_structure__session_id=session)
+
+    rows = qs.values(
+        'fee_structure__programme_id', 'fee_structure__programme__name',
+    ).annotate(
+        invoice_count=Count('id'),
+        expected=Sum('amount_due'),
+        collected=Sum('amount_paid'),
+        paid=Count('id', filter=Q(status=Invoice.Status.PAID)),
+        partial=Count('id', filter=Q(status=Invoice.Status.PARTIALLY_PAID)),
+        pending=Count('id', filter=Q(status=Invoice.Status.PENDING)),
+    ).order_by('fee_structure__programme__name')
+
+    report = []
+    for row in rows:
+        expected = row['expected'] or 0
+        collected = row['collected'] or 0
+        report.append({
+            'programme_id': row['fee_structure__programme_id'],
+            'programme_name': row['fee_structure__programme__name'] or 'All programmes',
+            'invoice_count': row['invoice_count'],
+            'expected': expected,
+            'collected': collected,
+            'outstanding': expected - collected,
+            'paid': row['paid'],
+            'partial': row['partial'],
+            'pending': row['pending'],
+            'percent_collected': round(collected / expected * 100, 1) if expected else 0,
+        })
+    return report
 
 
 def get_outstanding_balance_for_student(student):
+    """Display-only total of what a student still owes across invoices.
+    Never used to compute an amount payable - every payment is charged
+    against exactly one invoice's own balance."""
     from django.db.models import F, Sum
 
     result = get_invoices_for_student(student).exclude(status=Invoice.Status.PAID).aggregate(

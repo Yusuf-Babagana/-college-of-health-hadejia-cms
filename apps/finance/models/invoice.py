@@ -5,6 +5,18 @@ from django.db import models
 from apps.core.models import BaseModel
 
 
+def new_invoice_number():
+    """A unique INV-YYYYMMDD-XXXXXX number, retrying on the (very
+    unlikely) collision since the generator itself doesn't touch the DB.
+    """
+    from apps.core.utils.generators import generate_invoice_number
+
+    while True:
+        number = generate_invoice_number()
+        if not Invoice.all_objects.filter(invoice_number=number).exists():
+            return number
+
+
 class Invoice(BaseModel):
     """A student's bill against a specific fee structure. amount_due is a
     snapshot of the fee structure's amount at generation time, so a later
@@ -27,6 +39,10 @@ class Invoice(BaseModel):
         on_delete=models.PROTECT,
         related_name='invoices',
     )
+    invoice_number = models.CharField(
+        max_length=30, unique=True, null=True, blank=True, editable=False,
+        help_text='Human-readable unique reference, generated when the invoice is created.',
+    )
     amount_due = models.DecimalField(max_digits=12, decimal_places=2)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
@@ -46,6 +62,11 @@ class Invoice(BaseModel):
 
     def __str__(self):
         return f'{self.student.matric_number} - {self.fee_structure}'
+
+    def save(self, *args, **kwargs):
+        if not self.invoice_number:
+            self.invoice_number = new_invoice_number()
+        super().save(*args, **kwargs)
 
     @property
     def balance(self):
