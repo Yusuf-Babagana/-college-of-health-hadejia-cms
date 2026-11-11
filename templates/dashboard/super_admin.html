@@ -9,7 +9,7 @@
 <p class="text-muted mb-4">
   Full system overview
   {% for session in current_sessions %}&middot; {{ session.name }} {% endfor %}
-  {% for state in level_states %} &middot; {{ state.get_level_display }}: {{ state.semester.get_name_display }}{% endfor %}
+  {% for state in level_states %} &middot; {{ state.get_level_display }}{% if state.programme_id %} ({{ state.programme.short_code }}){% endif %}: {{ state.semester.get_name_display }}{% endfor %}
 </p>
 
 <div class="row g-3 mb-4">

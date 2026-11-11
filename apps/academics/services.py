@@ -4,23 +4,23 @@ Business logic for academic session/semester management.
 from .models import LevelSemesterState, Semester
 
 
-def set_level_semester(level, semester):
+def set_level_semester(level, semester, programme=None):
     """Point a student level at its current semester (FR-REG-02, per
     level: cohorts move at different paces, so each level's current
     semester is set independently). This is the only place level states
     should ever be written.
     """
     state, _ = LevelSemesterState.objects.update_or_create(
-        level=level, defaults={'semester': semester},
+        level=level, programme=programme, defaults={'semester': semester},
     )
     return state
 
 
-def clear_level_semester(level):
+def clear_level_semester(level, programme=None):
     """Put a level into a "no semester in progress" state - e.g. between
     sessions, before the Registrar opens the next one for that level.
     """
-    LevelSemesterState.objects.filter(level=level).delete()
+    LevelSemesterState.objects.filter(level=level, programme=programme).delete()
 
 
 def set_registration_window(semester, *, start, end):

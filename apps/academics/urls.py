@@ -17,4 +17,6 @@ urlpatterns = [
     path('semesters/<uuid:pk>/registration-window/', views.SemesterRegistrationWindowView.as_view(), name='registration_window'),
 
     path('level-states/', views.LevelSemesterStateView.as_view(), name='level_states'),
+    path('level-states/options/levels/', views.ProgrammeLevelOptionsView.as_view(), name='level_state_levels'),
+    path('level-states/options/semesters/', views.ProgrammeLevelSemesterOptionsView.as_view(), name='level_state_semesters'),
 ]

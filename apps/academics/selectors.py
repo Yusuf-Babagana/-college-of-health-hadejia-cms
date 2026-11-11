@@ -25,24 +25,54 @@ def get_semester_list(*, session=None, include_archived=False):
     return qs
 
 
-def get_semester_for_level(level):
+def get_semester_for_level(level, programme=None):
     """The semester a given student level is currently running, or None
     if the Registrar hasn't opened one for that level. This replaces the
     old single global "active semester" - a student's (or course's)
     current semester is always resolved through their level.
+
+    Pass ``programme`` (a Programme or its pk) to honour a
+    programme-specific state; with none set - or no programme given -
+    the college-wide default row (programme NULL) applies.
     """
-    state = (
-        LevelSemesterState.objects.filter(level=level)
-        .select_related('semester', 'semester__session')
-        .first()
-    )
+    states = LevelSemesterState.objects.filter(level=level).select_related('semester', 'semester__session')
+    programme_id = getattr(programme, 'pk', programme)
+    if programme_id:
+        state = states.filter(programme_id=programme_id).first()
+        if state:
+            return state.semester
+    state = states.filter(programme__isnull=True).first()
     return state.semester if state else None
 
 
 def get_level_semester_states():
     """Every level's current semester, for the Registrar's level-state
     screen and staff dashboards."""
-    return LevelSemesterState.objects.select_related('semester', 'semester__session').order_by('level')
+    return LevelSemesterState.objects.select_related('semester', 'semester__session', 'programme').order_by('level', 'programme__name')
+
+
+def get_active_programmes():
+    """Programmes offered in the Program -> Level -> Semester-Session
+    selector. Deliberately NOT routed through programme.department,
+    which is NULL on every existing row."""
+    from apps.admissions.models import Programme
+
+    return Programme.objects.filter(is_active=True).order_by('name')
+
+
+def get_levels_for_programme(programme):
+    """[(value, label)] for the levels a programme spans (100 up to
+    duration_levels x 100)."""
+    from apps.core.constants import Level
+
+    labels = dict(Level.choices)
+    return [(value, labels[value]) for value in programme.levels]
+
+
+def get_semesters_for_selection():
+    """Semester-Session combinations available to every programme/level
+    (semesters are global today), newest session first."""
+    return Semester.objects.select_related('session')
 
 
 def get_current_semesters():

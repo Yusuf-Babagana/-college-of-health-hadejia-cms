@@ -42,7 +42,7 @@
       <tbody>
         {% for state in level_states %}
         <tr>
-          <td class="fw-semibold">{{ state.get_level_display }}</td>
+          <td class="fw-semibold">{{ state.get_level_display }}{% if state.programme_id %} ({{ state.programme.short_code }}){% endif %}</td>
           <td>{{ state.semester.get_name_display }}</td>
           <td><span class="badge badge-teal">{{ state.semester.session.name }}</span></td>
           <td class="small">

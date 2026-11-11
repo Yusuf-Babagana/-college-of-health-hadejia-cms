@@ -460,7 +460,7 @@ class AvailableCourseListView(StudentCourseRoleMixin, ListView):
             # not something the student has to remember to trigger.
             services.sync_carryover_registrations(self.student_profile)
         self.active_semester = (
-            get_semester_for_level(self.student_profile.level) if self.student_profile else None
+            get_semester_for_level(self.student_profile.level, self.student_profile.programme_id) if self.student_profile else None
         )
         self.is_cleared = None
 
@@ -531,7 +531,7 @@ class MyCourseRegistrationsView(StudentCourseRoleMixin, ListView):
         student_profile = getattr(self.request.user, 'student_profile', None)
         if student_profile:
             services.sync_carryover_registrations(student_profile)
-        self.active_semester = get_semester_for_level(student_profile.level) if student_profile else None
+        self.active_semester = get_semester_for_level(student_profile.level, student_profile.programme_id) if student_profile else None
         if not student_profile or not self.active_semester:
             return CourseOffering.objects.none()
         return selectors.get_registered_courses(student_profile, semester=self.active_semester)
@@ -576,7 +576,7 @@ class RegistrationSlipPDFView(StudentCourseRoleMixin, View):
 
         from apps.academics.selectors import get_semester_for_level
 
-        active_semester = get_semester_for_level(student_profile.level)
+        active_semester = get_semester_for_level(student_profile.level, student_profile.programme_id)
         if not active_semester or not selectors.is_registration_approved(student_profile, active_semester):
             messages.error(
                 request,

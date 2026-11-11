@@ -51,7 +51,7 @@ class StudentDashboardView(RoleRequiredMixin, TemplateView):
         context['student_profile'] = student_profile
 
         # The student's own current semester/session follow their level.
-        active_semester = get_semester_for_level(student_profile.level) if student_profile else None
+        active_semester = get_semester_for_level(student_profile.level, student_profile.programme_id) if student_profile else None
         current_session = active_semester.session if active_semester else None
         context['current_session'] = current_session
         context['active_semester'] = active_semester

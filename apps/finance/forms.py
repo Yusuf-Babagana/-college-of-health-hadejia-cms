@@ -135,7 +135,7 @@ class StudentInvoiceGenerateForm(CrispyFormMixin, forms.Form):
         if student.programme_id:
             self.fields['programme'].initial = student.programme_id
 
-        current_semester = get_semester_for_level(student.level)
+        current_semester = get_semester_for_level(student.level, student.programme_id)
         self.fields['semester'].queryset = (
             Semester.objects.filter(pk=current_semester.pk) if current_semester else Semester.objects.none()
         )

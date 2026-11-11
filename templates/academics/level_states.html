@@ -6,6 +6,58 @@
   <li class="breadcrumb-item active">Level Semesters</li>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+(function () {
+  var form = document.getElementById('level-state-selector');
+  if (!form) return;
+  var prog = document.getElementById('sel-programme');
+  var level = document.getElementById('sel-level');
+  var sem = document.getElementById('sel-semester');
+  var submit = document.getElementById('sel-submit');
+
+  function reset(select, placeholder) {
+    select.innerHTML = '';
+    var o = document.createElement('option');
+    o.value = ''; o.textContent = placeholder;
+    select.appendChild(o);
+    select.disabled = true;
+  }
+  function fill(select, items) {
+    items.forEach(function (i) {
+      var o = document.createElement('option');
+      o.value = i.value; o.textContent = i.label;
+      select.appendChild(o);
+    });
+    select.disabled = items.length === 0;
+  }
+  function syncSubmit() { submit.disabled = !(prog.value && level.value && sem.value); }
+
+  prog.addEventListener('change', function () {
+    reset(level, '— Select level —');
+    reset(sem, '— Select semester - session —');
+    syncSubmit();
+    if (!prog.value) return;
+    fetch(form.dataset.levelsUrl + '?programme=' + encodeURIComponent(prog.value),
+          {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(function (r) { return r.json(); })
+      .then(function (d) { fill(level, d.levels); });
+  });
+  level.addEventListener('change', function () {
+    reset(sem, '— Select semester - session —');
+    syncSubmit();
+    if (!level.value) return;
+    fetch(form.dataset.semestersUrl + '?programme=' + encodeURIComponent(prog.value) +
+          '&level=' + encodeURIComponent(level.value),
+          {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(function (r) { return r.json(); })
+      .then(function (d) { fill(sem, d.semesters); });
+  });
+  sem.addEventListener('change', syncSubmit);
+})();
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0">Level Semesters</h4>
@@ -15,6 +67,42 @@
   Semester while Level 200 is already in Second. Everything a student sees (available courses, fees, results)
   follows the semester set for their level here.
 </p>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h6 class="mb-1">Set semester for a Programme</h6>
+    <p class="text-muted small">Applies to that programme's level only; programmes without their own setting follow the college-wide default in the table below.</p>
+    <form method="post" id="level-state-selector" class="row g-3 align-items-end"
+          data-levels-url="{% url 'academics:level_state_levels' %}"
+          data-semesters-url="{% url 'academics:level_state_semesters' %}">
+      {% csrf_token %}
+      <div class="col-12 col-md-3">
+        <label for="sel-programme" class="form-label">Program</label>
+        <select name="programme" id="sel-programme" class="form-select" required>
+          <option value="">— Select program —</option>
+          {% for programme in programmes %}
+            <option value="{{ programme.pk }}">{{ programme.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-3">
+        <label for="sel-level" class="form-label">Level</label>
+        <select name="level" id="sel-level" class="form-select" required disabled>
+          <option value="">— Select level —</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-4">
+        <label for="sel-semester" class="form-label">Semester - Session</label>
+        <select name="semester" id="sel-semester" class="form-select" required disabled>
+          <option value="">— Select semester - session —</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-2">
+        <button type="submit" class="btn btn-primary w-100" id="sel-submit" disabled>Save</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div class="card shadow-sm">
   <div class="table-responsive">
@@ -67,4 +155,34 @@
     </table>
   </div>
 </div>
+
+{% if programme_states %}
+<div class="card shadow-sm mt-4">
+  <div class="card-header bg-white fw-semibold">Programme-specific settings</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Programme</th><th>Level</th><th>Semester</th><th>Session</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for state in programme_states %}
+        <tr>
+          <td>{{ state.programme.name }}</td>
+          <td>{{ state.get_level_display }}</td>
+          <td><span class="badge bg-success">{{ state.semester.get_name_display }}</span></td>
+          <td><span class="badge badge-teal">{{ state.semester.session.name }}</span></td>
+          <td class="text-end">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="remove_programme_state" value="{{ state.pk }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Use default</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

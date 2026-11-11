@@ -3,6 +3,8 @@ from django import forms
 from apps.core.constants import Level
 from apps.core.forms import CrispyFormMixin
 
+from apps.admissions.models import Programme
+
 from .models import AcademicSession, Semester
 
 
@@ -44,6 +46,29 @@ class LevelSemesterStateForm(CrispyFormMixin, forms.Form):
         required=False,
         help_text='Leave blank to mark this level as having no semester in progress.',
     )
+
+
+class LevelSemesterSelectionForm(forms.Form):
+    """Program -> Level -> Semester-Session selector. The semester is
+    still stored per level (LevelSemesterState); the programme only
+    scopes which levels are valid, so an invalid combination (e.g. 300
+    Level for a 2-level certificate) is rejected server-side.
+    """
+    programme = forms.ModelChoiceField(queryset=Programme.objects.none())
+    level = forms.TypedChoiceField(choices=Level.choices, coerce=int)
+    semester = forms.ModelChoiceField(queryset=Semester.objects.select_related('session'))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['programme'].queryset = Programme.objects.filter(is_active=True)
+
+    def clean(self):
+        cleaned = super().clean()
+        programme = cleaned.get('programme')
+        level = cleaned.get('level')
+        if programme and level and level not in programme.levels:
+            self.add_error('level', f'{programme} does not have a {dict(Level.choices)[level]}.')
+        return cleaned
 
 
 class RegistrationWindowForm(CrispyFormMixin, forms.Form):
