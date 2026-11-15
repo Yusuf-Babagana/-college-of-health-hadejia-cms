@@ -12,6 +12,12 @@
   {% for state in level_states %} &middot; {{ state.get_level_display }}{% if state.programme_id %} ({{ state.programme.short_code }}){% endif %}: {{ state.semester.get_name_display }}{% endfor %}
 </p>
 
+<div class="mb-4">
+  <a href="{% url 'students:bulk_promote' %}" class="btn btn-success">
+    <i class="bi bi-arrow-up-circle-fill me-1"></i> Promote Students
+  </a>
+</div>
+
 <div class="row g-3 mb-4">
   {% include 'partials/_stat_card.html' with icon='bi-people-fill' label='Total Users' value=total_users %}
   {% include 'partials/_stat_card.html' with icon='bi-mortarboard-fill' label='Students' value=total_students %}
