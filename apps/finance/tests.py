@@ -165,7 +165,8 @@ class ProgramInvoiceVisibilityTests(ProgramInvoiceTestBase):
         self.assertFalse(FeeStructure.objects.exists())
 
     def test_eligible_student_sees_invoice_with_correct_amount(self):
-        self.make_fee()
+        fee = self.make_fee()
+        services.generate_invoices_for_published_fee(fee)
         response = self.login(self.a1).get(reverse('finance:my_invoices'))
         self.assertContains(response, 'First semester school fees')
         self.assertEqual(Invoice.objects.get(student=self.a1).amount_due, Decimal('50000.00'))
@@ -195,23 +196,19 @@ class ProgramInvoiceVisibilityTests(ProgramInvoiceTestBase):
             services.bulk_generate_invoices(fee_structure=fee)
 
     def test_department_wide_fee_covers_every_programme(self):
-        self.make_fee(programme=None)
-        for student in (self.a1, self.b1):
-            self.login(student).get(reverse('finance:my_invoices'))
-        self.assertEqual(Invoice.objects.count(), 2)
+        services.generate_invoices_for_published_fee(self.make_fee(programme=None))
+        # every level-200 student, whichever programme: a1, a2 (Nursing) and b1 (Midwifery)
+        self.assertEqual({i.student_id for i in Invoice.objects.all()}, {self.a1.pk, self.a2.pk, self.b1.pk})
 
     def test_program_specific_fee_wins_over_department_wide(self):
-        self.make_fee(programme=None, amount=Decimal('10000.00'))
-        self.make_fee(amount=Decimal('50000.00'))
-        self.login(self.a1).get(reverse('finance:my_invoices'))
-        self.login(self.b1).get(reverse('finance:my_invoices'))
+        for fee in (self.make_fee(programme=None, amount=Decimal('10000.00')), self.make_fee(amount=Decimal('50000.00'))):
+            services.generate_invoices_for_published_fee(fee)
         self.assertEqual(Invoice.objects.get(student=self.a1).amount_due, Decimal('50000.00'))
         self.assertEqual(Invoice.objects.get(student=self.b1).amount_due, Decimal('10000.00'))
         self.assertEqual(Invoice.objects.filter(student=self.a1).count(), 1)
 
     def test_student_cannot_open_another_students_invoice(self):
-        self.make_fee()
-        self.login(self.a2).get(reverse('finance:my_invoices'))
+        services.generate_invoices_for_published_fee(self.make_fee())
         others = Invoice.objects.get(student=self.a2)
         response = self.login(self.a1).get(reverse('finance:initiate_payment', args=[others.pk]), follow=True)
         self.assertContains(response, 'Invoice not found')
@@ -235,6 +232,108 @@ class ProgramInvoiceVisibilityTests(ProgramInvoiceTestBase):
         self.assertEqual(len(response.context['invoices']), 2)
         response = client.get(reverse('finance:invoice_list'), {'programme': self.prog_b.pk})
         self.assertEqual(len(response.context['invoices']), 0)
+
+
+class InvoiceTriggerTests(ProgramInvoiceTestBase):
+    """Invoices are issued by events, never by a student opening a page."""
+
+    def test_my_invoices_page_is_read_only(self):
+        self.make_fee()
+        self.login(self.a1).get(reverse('finance:my_invoices'))
+        self.assertEqual(Invoice.objects.count(), 0)
+
+    def test_opening_a_semester_for_a_level_bills_that_level(self):
+        fee = self.make_fee(level=Level.LEVEL_300, semester=self.sem_other, session=self.other_session)
+        student = self.make_student('c1', self.prog_a, Level.LEVEL_300)
+        self.assertEqual(Invoice.objects.count(), 0)
+        with self.captureOnCommitCallbacks(execute=True):
+            LevelSemesterState.objects.create(level=Level.LEVEL_300, semester=self.sem_other)
+        self.assertEqual([i.student_id for i in Invoice.objects.all()], [student.pk])
+        self.assertEqual(Invoice.objects.get().fee_structure, fee)
+
+    def test_semester_for_one_programme_does_not_bill_another(self):
+        self.make_fee(level=Level.LEVEL_300, semester=self.sem_other, session=self.other_session, programme=None)
+        self.make_student('c1', self.prog_a, Level.LEVEL_300)
+        other = self.make_student('c2', self.prog_b, Level.LEVEL_300)
+        with self.captureOnCommitCallbacks(execute=True):
+            LevelSemesterState.objects.create(
+                level=Level.LEVEL_300, semester=self.sem_other, programme=self.prog_a,
+            )
+        self.assertFalse(Invoice.objects.filter(student=other).exists())
+        self.assertEqual(Invoice.objects.count(), 1)
+
+    def test_admitting_a_student_bills_them(self):
+        self.make_fee()
+        with self.captureOnCommitCallbacks(execute=True):
+            student = self.make_student('new', self.prog_a, Level.LEVEL_200)
+        self.assertEqual(Invoice.objects.get(student=student).amount_due, Decimal('50000.00'))
+
+    def test_moving_a_student_to_a_billed_level_bills_them(self):
+        self.make_fee()
+        self.assertFalse(Invoice.objects.filter(student=self.a_l100).exists())
+        self.a_l100.level = Level.LEVEL_200
+        with self.captureOnCommitCallbacks(execute=True):
+            self.a_l100.save()
+        self.assertTrue(Invoice.objects.filter(student=self.a_l100).exists())
+
+    def test_unrelated_student_saves_do_not_trigger_billing(self):
+        self.make_fee()
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            self.a1.save(update_fields=['updated_at'])
+        self.assertEqual(callbacks, [])
+        self.assertEqual(Invoice.objects.count(), 0)
+
+    def test_backfill_command_is_idempotent(self):
+        from django.core.management import call_command
+        self.make_fee()
+        call_command('generate_invoices', stdout=mock.MagicMock())
+        call_command('generate_invoices', stdout=mock.MagicMock())
+        self.assertEqual(Invoice.objects.count(), 2)
+
+
+class InvoiceIssuingSeamTests(ProgramInvoiceTestBase):
+    """issue_invoices is the one creation path; every entry point agrees."""
+
+    def test_all_entry_points_are_idempotent_and_agree(self):
+        fee = self.make_fee()
+        created, skipped = services.bulk_generate_invoices(fee_structure=fee)
+        self.assertEqual((created, skipped), (2, 0))
+        # Re-running any path creates nothing and never raises.
+        self.assertEqual(services.bulk_generate_invoices(fee_structure=fee), (0, 2))
+        self.assertEqual(services.generate_invoices_for_published_fee(fee), (0, 2))
+        self.assertEqual(services.sync_invoices_for_student(self.a1), [])
+        self.assertEqual(Invoice.objects.count(), 2)
+
+    def test_sync_issues_missing_invoice_with_snapshot_amount(self):
+        fee = self.make_fee()
+        created = services.sync_invoices_for_student(self.a1)
+        self.assertEqual(len(created), 1)
+        fee.amount = Decimal('99999.00')
+        fee.save()
+        self.assertEqual(Invoice.objects.get(student=self.a1).amount_due, Decimal('50000.00'))
+
+    def test_single_generation_rejects_duplicate_but_bulk_skips(self):
+        fee = self.make_fee()
+        services.generate_invoice(student=self.a1, fee_structure=fee)
+        with self.assertRaises(ValidationError):
+            services.generate_invoice(student=self.a1, fee_structure=fee)
+
+    def test_unpublished_fee_cannot_be_issued_by_any_path(self):
+        fee = self.make_fee(is_published=False)
+        with self.assertRaises(ValidationError):
+            services.issue_invoices(fee_structure=fee, students=[self.a1])
+        with self.assertRaises(ValidationError):
+            services.generate_invoice(student=self.a1, fee_structure=fee)
+        self.assertIsNone(services.generate_invoices_for_published_fee(fee))
+        self.assertEqual(Invoice.objects.count(), 0)
+
+    def test_student_to_fee_and_fee_to_students_resolution_agree(self):
+        dept_wide = self.make_fee(programme=None, amount=Decimal('10000.00'))
+        specific = self.make_fee()
+        self.assertEqual(selectors.resolve_fee_structures_for_student(self.a1), [specific])
+        self.assertEqual(selectors.resolve_fee_structures_for_student(self.b1), [dept_wide])
+        self.assertIn(self.a1, selectors.get_eligible_students(specific))
+        self.assertNotIn(self.a1, selectors.get_eligible_students(dept_wide))
 
 
 class IsolatedInvoicePaymentTests(ProgramInvoiceTestBase):

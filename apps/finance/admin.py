@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from apps.core.admin import SoftDeleteAdminMixin
 
+from . import services
 from .models import FeeStructure, FeeType, Invoice, Payment
 
 
@@ -21,6 +22,11 @@ class FeeStructureAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     autocomplete_fields = ('department', 'programme', 'session', 'semester', 'fee_type')
     ordering = ('-session__name', 'department__code', 'level')
     readonly_fields = ('id', 'created_at', 'updated_at')
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # Same trigger as the Bursar's screens: a published fee bills its students.
+        services.generate_invoices_for_published_fee(obj)
 
 
 @admin.register(Invoice)
