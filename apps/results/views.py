@@ -108,7 +108,7 @@ class LecturerOfferingListView(LecturerResultsRoleMixin, ListView):
         from apps.academics.models import Semester
 
         context = super().get_context_data(**kwargs)
-        context['semesters'] = Semester.objects.select_related('session')
+        context['semesters'] = Semester.objects.select_related('session', 'programme')
         context['current_semester_filter'] = self.current_semester_filter
         return context
 
@@ -321,7 +321,7 @@ class GradeCollationListView(ExamOfficerRoleMixin, PaginatedListMixin, ListView)
 
         context = super().get_context_data(**kwargs)
         context['departments'] = get_active_departments()
-        context['semesters'] = Semester.objects.select_related('session')
+        context['semesters'] = Semester.objects.select_related('session', 'programme')
         context['current_department'] = self.request.GET.get('department', '')
         context['current_semester'] = self.current_semester_filter
         context['current_status'] = self.request.GET.get('status', '')
@@ -360,7 +360,7 @@ class ApprovedGradeListView(ExamOfficerRoleMixin, PaginatedListMixin, ListView):
 
         context = super().get_context_data(**kwargs)
         context['departments'] = get_active_departments()
-        context['semesters'] = Semester.objects.select_related('session')
+        context['semesters'] = Semester.objects.select_related('session', 'programme')
         context['current_department'] = self.request.GET.get('department', '')
         context['current_semester'] = self.request.GET.get('semester', '')
 
@@ -562,7 +562,7 @@ class MasterBroadsheetView(ExamOfficerRoleMixin, TemplateView):
 
         context = super().get_context_data(**kwargs)
         context['programmes'] = Programme.objects.filter(is_active=True).select_related('department').order_by('name')
-        context['semesters'] = Semester.objects.select_related('session')
+        context['semesters'] = Semester.objects.select_related('session', 'programme')
         context['current_programme'] = self.request.GET.get('programme', '')
         context['current_semester'] = self.request.GET.get('semester', '')
         context['current_level'] = self.request.GET.get('level', '')

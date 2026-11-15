@@ -119,10 +119,16 @@ def get_levels_for_programme(programme):
     return [(value, labels[value]) for value in programme.levels]
 
 
-def get_semesters_for_selection():
-    """Semester-Session combinations available to every programme/level
-    (semesters are global today), newest session first."""
-    return Semester.objects.select_related('session')
+def get_semesters_for_selection(programme=None):
+    """Semester-Session combinations to choose from, newest session first.
+    With a programme: its own semesters plus the college-wide ones that
+    have no programme (those created before programmes were attached)."""
+    from django.db.models import Q
+
+    semesters = Semester.objects.select_related('session', 'programme')
+    if programme is not None:
+        semesters = semesters.filter(Q(programme=programme) | Q(programme__isnull=True))
+    return semesters
 
 
 def get_current_semesters():
