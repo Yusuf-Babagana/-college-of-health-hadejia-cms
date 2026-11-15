@@ -1,7 +1,8 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import FormView, ListView, UpdateView, View
 
 from apps.core.constants import Role
@@ -115,6 +116,28 @@ class StudentStatusUpdateView(StudentManagementRoleMixin, View):
             )
             return redirect('students:student_list')
         return render(request, 'students/student_status_form.html', {'student': student, 'form': form})
+
+
+class StudentPromoteView(StudentManagementRoleMixin, View):
+    """Promote a student to the next level. POST-only; reports the level
+    actually stored after saving."""
+
+    def post(self, request, pk):
+        student = get_object_or_404(Student, pk=pk)
+        old_level = student.get_level_display()
+        try:
+            services.promote_student(student)
+        except ValidationError as exc:
+            messages.error(request, ' '.join(exc.messages))
+        else:
+            messages.success(
+                request,
+                f'{student.matric_number} promoted from {old_level} to {student.get_level_display()}.',
+            )
+        next_url = request.POST.get('next', '')
+        if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            next_url = reverse('students:student_list')
+        return redirect(next_url)
 
 
 class StudentArchiveToggleView(StudentManagementRoleMixin, View):

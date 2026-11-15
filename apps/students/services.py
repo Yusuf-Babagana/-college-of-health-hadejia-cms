@@ -82,6 +82,38 @@ def update_student_status(student, new_status):
     return student
 
 
+def next_level_for(student):
+    """The level after the student's current one, within their programme's
+    span (a 2-level certificate ends at 200). None if they're already at
+    the final level.
+    """
+    from apps.core.constants import Level
+
+    levels = student.programme.levels if student.programme_id else [value for value, _ in Level.choices]
+    higher = [value for value in levels if value > student.level]
+    return min(higher) if higher else None
+
+
+def promote_student(student):
+    """Move an active student up one level. Saves only the level, then
+    re-reads it from the database so the caller reports what is really
+    stored. The post_save signal in finance bills the new level's fees.
+    Raises ValidationError if the student can't be promoted.
+    """
+    if student.status != Student.Status.ACTIVE:
+        raise ValidationError(f'{student.matric_number} is {student.get_status_display().lower()}; only active students can be promoted.')
+    new_level = next_level_for(student)
+    if new_level is None:
+        raise ValidationError(
+            f'{student.matric_number} is already at the final level of their programme '
+            f'({student.get_level_display()}); mark them Graduated instead.'
+        )
+    student.level = new_level
+    student.save(update_fields=['level', 'updated_at'])
+    student.refresh_from_db(fields=['level'])
+    return student
+
+
 def archive_student(student):
     student.delete()  # soft delete
     return student

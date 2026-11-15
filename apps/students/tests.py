@@ -181,3 +181,61 @@ class MatricNumberFormatTests(TestCase):
                 matric_number='', department=self.dept, level=Level.LEVEL_100,
                 admission_session=self.session,
             )
+
+
+class StudentPromotionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth import get_user_model
+        from apps.core.constants import Role
+
+        cls.session = AcademicSession.objects.create(name='2096/2097')
+        cls.dept = Department.objects.create(name='Nursing Dept', code='NUR')
+        cls.prog = Programme.objects.create(name='Certificate', short_code='CRT', department=cls.dept, duration_levels=2)
+        cls.registrar = get_user_model().objects.create_user(username='reg', password='x', role=Role.REGISTRAR)
+        cls.student, _ = create_student(
+            first_name='T', last_name='S', email='s@example.test', matric_number='NUR/1',
+            department=cls.dept, level=Level.LEVEL_100, admission_session=cls.session, programme=cls.prog,
+        )
+
+    def promote(self):
+        from django.test import Client
+        from django.urls import reverse
+
+        client = Client()
+        client.force_login(self.registrar)
+        return client.post(reverse('students:student_promote', args=[self.student.pk]), follow=True)
+
+    def test_promote_moves_up_one_level_and_persists(self):
+        response = self.promote()
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.level, Level.LEVEL_200)
+        self.assertContains(response, 'promoted from 100 Level to 200 Level')
+
+    def test_cannot_promote_past_programme_final_level(self):
+        self.promote()
+        response = self.promote()
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.level, Level.LEVEL_200)
+        self.assertContains(response, 'already at the final level')
+
+    def test_only_active_students_can_be_promoted(self):
+        from apps.students.models import Student
+        from apps.students.services import promote_student, update_student_status
+
+        update_student_status(self.student, Student.Status.SUSPENDED)
+        with self.assertRaises(ValidationError):
+            promote_student(self.student)
+
+    def test_promote_is_post_only_and_role_protected(self):
+        from django.test import Client
+        from django.urls import reverse
+
+        client = Client()
+        client.force_login(self.registrar)
+        self.assertEqual(client.get(reverse('students:student_promote', args=[self.student.pk])).status_code, 405)
+        student_client = Client()
+        student_client.force_login(self.student.user)
+        student_client.post(reverse('students:student_promote', args=[self.student.pk]))
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.level, Level.LEVEL_100)

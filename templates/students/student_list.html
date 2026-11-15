@@ -91,6 +91,14 @@
           </td>
           <td class="text-end">
             {% if not student.is_deleted %}
+              {% if student.status == 'active' %}
+              <form method="post" action="{% url 'students:student_promote' student.pk %}" class="d-inline"
+                    onsubmit="return confirm('Promote {{ student.matric_number }} from {{ student.get_level_display }} to the next level?');">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-up-circle"></i> Promote</button>
+              </form>
+              {% endif %}
               <a href="{% url 'students:student_status_update' student.pk %}" class="btn btn-sm btn-outline-warning">
                 <i class="bi bi-arrow-repeat"></i> Status
               </a>
