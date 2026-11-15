@@ -1,0 +1,43 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:students_student_changelist' %}">Students</a> &rsaquo;
+  Promote students
+</div>
+{% endblock %}
+
+{% block content %}
+<h2>Promote students</h2>
+
+{% if movable %}
+  <p><strong>{{ movable|length }}</strong> student(s) will move up one level:</p>
+  <ul>
+    {% for student, from_level, to_level in movable_rows %}
+      <li>{{ student.matric_number }} &mdash; {{ from_level }} &rarr; {{ to_level }}</li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p><strong>None of the selected students can be promoted.</strong></p>
+{% endif %}
+
+{% if at_final %}
+  <p>{{ at_final|length }} selected student(s) are at their programme's final level and will be left unchanged
+     (mark them Graduated instead).</p>
+{% endif %}
+{% if not_active %}
+  <p>{{ not_active|length }} selected student(s) are not active (or are archived) and will be left unchanged.</p>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  {% for student in queryset %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ student.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="promote_selected">
+  {% if movable %}<input type="hidden" name="confirm" value="1">{% endif %}
+  {% if movable %}<input type="submit" class="default" value="Yes, promote {{ movable|length }} student(s)">{% endif %}
+  <a href="{% url 'admin:students_student_changelist' %}" class="button cancel-link">Cancel</a>
+</form>
+{% endblock %}

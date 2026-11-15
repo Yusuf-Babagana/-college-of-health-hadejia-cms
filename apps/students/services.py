@@ -114,6 +114,32 @@ def promote_student(student):
     return student
 
 
+def classify_for_promotion(students):
+    """Splits students into (movable, at_final_level, not_active) for a
+    hand-picked selection (e.g. from the Django admin)."""
+    movable, at_final, not_active = [], [], []
+    for student in students:
+        if student.is_deleted or student.status != Student.Status.ACTIVE:
+            not_active.append(student)
+        elif next_level_for(student) is None:
+            at_final.append(student)
+        else:
+            movable.append(student)
+    return movable, at_final, not_active
+
+
+def promote_many(students):
+    """Promotes a selection of students one level each, all or nothing.
+    Inactive/archived students and those at their programme's final level
+    are left unchanged. Returns (promoted, at_final_level, not_active)."""
+    movable, at_final, not_active = classify_for_promotion(students)
+    with transaction.atomic():
+        for student in movable:
+            student.level = next_level_for(student)
+            student.save(update_fields=['level', 'updated_at'])  # finance signal bills the new level
+    return len(movable), len(at_final), len(not_active)
+
+
 def _promotable_students(level, programme=None):
     students = Student.objects.filter(status=Student.Status.ACTIVE, level=level).select_related('programme')
     if programme is not None:
