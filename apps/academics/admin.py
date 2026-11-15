@@ -6,23 +6,37 @@ from apps.core.admin import SoftDeleteAdminMixin
 from apps.core.constants import Level
 
 from . import selectors
+from .forms import ProgrammeSessionFieldsMixin
 from .models import AcademicSession, LevelSemesterState, Semester
 
 
 @admin.register(AcademicSession)
 class AcademicSessionAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ('name', 'start_date', 'end_date', 'is_deleted')
+    filter_horizontal = ('programmes',)
     search_fields = ('name',)
     ordering = ('-name',)
     readonly_fields = ('id', 'created_at', 'updated_at')
 
 
+class SemesterAdminForm(ProgrammeSessionFieldsMixin, forms.ModelForm):
+    class Meta:
+        model = Semester
+        fields = ('programme', 'session', 'name', 'registration_start', 'registration_end')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._setup_programme_session()
+
+
 @admin.register(Semester)
 class SemesterAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('__str__', 'session', 'name', 'registration_start', 'registration_end', 'is_deleted')
-    list_filter = SoftDeleteAdminMixin.list_filter + ('session', 'name')
-    search_fields = ('session__name',)
-    autocomplete_fields = ('session',)
+    form = SemesterAdminForm
+    fields = ('programme', 'session', 'name', 'registration_start', 'registration_end')
+    list_display = ('__str__', 'programme', 'session', 'name', 'registration_start', 'registration_end', 'is_deleted')
+    list_filter = SoftDeleteAdminMixin.list_filter + ('programme', 'session', 'name')
+    search_fields = ('session__name', 'programme__name')
+    # No autocomplete for session: its choices depend on the chosen programme.
     ordering = ('-session__name', 'name')
     readonly_fields = ('id', 'created_at', 'updated_at')
 

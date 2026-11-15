@@ -22,6 +22,15 @@ class Semester(BaseModel):
         on_delete=models.PROTECT,
         related_name='semesters',
     )
+    # The programme this semester was created for. NULL on every semester
+    # that existed before programmes were attached (college-wide); the
+    # create/edit forms require it for anything saved from now on.
+    programme = models.ForeignKey(
+        'admissions.Programme',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        related_name='semesters',
+    )
     name = models.CharField(max_length=10, choices=SemesterName.choices)
     registration_start = models.DateTimeField(
         null=True, blank=True,
@@ -44,6 +53,10 @@ class Semester(BaseModel):
         return f'{self.get_name_display()} - {self.session.name}'
 
     def clean(self):
+        if self.programme_id and self.session_id and not self.session.applies_to(self.programme_id):
+            raise ValidationError({
+                'session': f'{self.session} is not an academic session for {self.programme}.',
+            })
         if self.registration_start and self.registration_end and self.registration_end <= self.registration_start:
             raise ValidationError({'registration_end': 'Registration close date must be after the open date.'})
 

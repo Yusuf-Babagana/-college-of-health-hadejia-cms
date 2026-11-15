@@ -245,3 +245,127 @@ class LevelStateUniquenessTests(TestCase):
         self.assertEqual(selectors.get_semester_for_level(100), self.first_25)
         self.assertEqual(selectors.get_semester_for_level(200, self.nd_ch), self.first_26)
         self.assertEqual(LevelSemesterState.objects.count(), 2)
+
+
+class ProgrammeSessionSemesterFormTests(TestCase):
+    """Semester form: PROGRAMME -> ACADEMIC SESSION -> SEMESTER."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.academics.forms import SemesterForm
+        cls.form_class = SemesterForm
+        cls.nursing = Programme.objects.create(name='Nursing', short_code='NUR', duration_levels=4)
+        cls.midwifery = Programme.objects.create(name='Midwifery', short_code='MID', duration_levels=4)
+        cls.s_nursing = AcademicSession.objects.create(name='2026/2027')
+        cls.s_nursing.programmes.add(cls.nursing)
+        cls.s_midwifery = AcademicSession.objects.create(name='2027/2028')
+        cls.s_midwifery.programmes.add(cls.midwifery)
+        cls.s_all = AcademicSession.objects.create(name='2025/2026')  # no programmes: applies to all
+        cls.registrar = get_user_model().objects.create_user(username='reg', password='x', role=Role.REGISTRAR)
+
+    def data(self, **overrides):
+        values = {'programme': self.nursing.pk, 'session': self.s_nursing.pk, 'name': 'first'}
+        values.update(overrides)
+        return values
+
+    def test_1_programme_dropdown_lists_programmes_and_is_required(self):
+        form = self.form_class()
+        listed = {p.pk for p in form.fields['programme'].queryset}
+        self.assertLessEqual({self.nursing.pk, self.midwifery.pk}, listed)  # (migrations also seed programmes)
+        self.assertTrue(form.fields['programme'].required)
+        self.assertEqual(list(form.fields)[:3], ['programme', 'session', 'name'])
+
+    def test_2_selecting_a_programme_loads_its_sessions(self):
+        client = self.client
+        client.force_login(self.registrar)
+        response = client.get(reverse('academics:semester_session_options'), {'programme': self.nursing.pk})
+        labels = {s['label'] for s in response.json()['sessions']}
+        self.assertEqual(labels, {'2026/2027', '2025/2026'})
+
+    def test_3_other_programmes_sessions_are_excluded(self):
+        self.client.force_login(self.registrar)
+        response = self.client.get(reverse('academics:semester_session_options'), {'programme': self.nursing.pk})
+        self.assertNotIn('2027/2028', {s['label'] for s in response.json()['sessions']})
+
+    def test_session_options_empty_without_or_with_bad_programme(self):
+        self.client.force_login(self.registrar)
+        url = reverse('academics:semester_session_options')
+        self.assertEqual(self.client.get(url).json()['sessions'], [])
+        self.assertEqual(self.client.get(url, {'programme': 'not-a-uuid'}).json()['sessions'], [])
+
+    def test_session_is_disabled_until_a_programme_is_chosen(self):
+        self.assertTrue(self.form_class().fields['session'].widget.attrs.get('disabled'))
+        self.assertEqual(self.form_class().fields['session'].queryset.count(), 0)
+        bound = self.form_class(data=self.data())
+        self.assertFalse(bound.fields['session'].widget.attrs.get('disabled'))
+
+    def test_4_changing_programme_resets_session_server_side(self):
+        # Browser reset is JS; the server guarantee is that the old session
+        # no longer validates once the programme changes.
+        form = self.form_class(data=self.data(programme=self.midwifery.pk))
+        self.assertFalse(form.is_valid())
+        self.assertIn('session', form.errors)
+
+    def test_5_cannot_create_without_programme_or_session(self):
+        for missing in ('programme', 'session'):
+            data = self.data()
+            data.pop(missing)
+            form = self.form_class(data=data)
+            self.assertFalse(form.is_valid())
+            self.assertIn(missing, form.errors)
+
+    def test_6_invalid_programme_session_combination_is_rejected(self):
+        form = self.form_class(data=self.data(session=self.s_midwifery.pk))
+        self.assertFalse(form.is_valid())
+        self.assertIn('session', form.errors)
+        self.assertFalse(Semester.objects.exists())
+
+    def test_model_clean_rejects_invalid_combination_even_outside_the_form(self):
+        from django.core.exceptions import ValidationError
+        semester = Semester(programme=self.nursing, session=self.s_midwifery, name='first')
+        with self.assertRaises(ValidationError):
+            semester.full_clean()
+
+    def test_valid_semester_saves_and_is_retrieved_with_its_programme(self):
+        form = self.form_class(data=self.data())
+        self.assertTrue(form.is_valid(), form.errors)
+        semester = form.save()
+        semester.refresh_from_db()
+        self.assertEqual((semester.programme, semester.session), (self.nursing, self.s_nursing))
+        edit = self.form_class(instance=semester)
+        self.assertEqual(edit['programme'].value(), self.nursing.pk)
+        self.assertIn(self.s_nursing, edit.fields['session'].queryset)
+        self.assertNotIn(self.s_midwifery, edit.fields['session'].queryset)
+
+    def test_session_with_no_programmes_applies_to_every_programme(self):
+        for programme in (self.nursing, self.midwifery):
+            form = self.form_class(data=self.data(programme=programme.pk, session=self.s_all.pk, name='second'))
+            self.assertTrue(form.is_valid(), form.errors)
+
+    def test_create_view_end_to_end(self):
+        self.client.force_login(self.registrar)
+        response = self.client.get(reverse('academics:semester_create'))
+        self.assertContains(response, 'programme-session-select.js')
+        self.client.post(reverse('academics:semester_create'), self.data(), follow=True)
+        self.assertEqual(Semester.objects.get().programme, self.nursing)
+
+    def test_7_existing_semesters_and_level_states_are_untouched(self):
+        legacy = Semester.objects.create(session=self.s_all, name='first')  # no programme, as before
+        state = LevelSemesterState.objects.create(level=100, semester=legacy)
+        self.assertIsNone(legacy.programme)
+        legacy.full_clean()  # still valid without a programme
+        self.assertEqual(selectors.get_semester_for_level(100), legacy)
+        self.assertEqual(state.semester, legacy)
+        self.assertTrue(list(selectors.get_semester_list()))  # list query still works
+
+    def test_django_admin_uses_the_same_form(self):
+        from django.contrib import admin as dj_admin
+        model_admin = dj_admin.site._registry[Semester]
+        self.assertIn('programme', model_admin.form.base_fields)
+        self.assertEqual(list(model_admin.form.base_fields)[:2], ['programme', 'session'])
+        superuser = get_user_model().objects.create_superuser(username='su', password='x', email='su@example.test')
+        self.client.force_login(superuser)
+        self.assertEqual(self.client.get(reverse('admin:academics_semester_add')).status_code, 200)
+        response = self.client.post(reverse('admin:academics_semester_add'), self.data(session=self.s_midwifery.pk))
+        self.assertEqual(response.status_code, 200)  # re-rendered with the error
+        self.assertFalse(Semester.objects.exists())
