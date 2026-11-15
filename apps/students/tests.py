@@ -331,3 +331,66 @@ class BulkPromotionTests(TestCase):
         response = client.get(reverse('dashboard:super_admin'))
         self.assertContains(response, reverse('students:bulk_promote'))
         self.assertContains(response, 'Promote Students')
+
+
+class AdminPromoteActionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth import get_user_model
+
+        cls.session = AcademicSession.objects.create(name='2096/2097')
+        cls.dept = Department.objects.create(name='Nursing Dept', code='NUR')
+        cls.two = Programme.objects.create(name='Certificate', short_code='CRT', department=cls.dept, duration_levels=2)
+        # a Django superuser with NO role - the account that only ever sees /admin/
+        cls.admin_user = get_user_model().objects.create_superuser(username='su', password='x', email='su@example.test')
+
+        def make(tag, level):
+            student, _ = create_student(
+                first_name='T', last_name=tag, email=f'{tag}@example.test', matric_number=f'NUR/{tag}',
+                department=cls.dept, level=level, admission_session=cls.session, programme=cls.two,
+            )
+            return student
+
+        cls.a, cls.b = make('a', Level.LEVEL_100), make('b', Level.LEVEL_100)
+        cls.final = make('f', Level.LEVEL_200)
+
+    def run_action(self, students, **extra):
+        from django.test import Client
+        from django.urls import reverse
+        client = Client()
+        client.force_login(self.admin_user)
+        data = {'action': 'promote_selected', '_selected_action': [str(s.pk) for s in students], **extra}
+        return client.post(reverse('admin:students_student_changelist'), data, follow=True)
+
+    def level(self, student):
+        student.refresh_from_db()
+        return student.level
+
+    def test_action_is_listed_in_the_admin(self):
+        from django.test import Client
+        from django.urls import reverse
+        client = Client()
+        client.force_login(self.admin_user)
+        response = client.get(reverse('admin:students_student_changelist'))
+        self.assertContains(response, 'Promote selected students to the next level')
+
+    def test_first_step_previews_and_changes_nothing(self):
+        response = self.run_action([self.a, self.b, self.final])
+        self.assertContains(response, 'will move up one level')
+        self.assertContains(response, 'Yes, promote 2 student(s)')
+        self.assertEqual(self.level(self.a), Level.LEVEL_100)
+
+    def test_confirm_promotes_and_skips_final_level_students(self):
+        response = self.run_action([self.a, self.b, self.final], confirm='1')
+        self.assertContains(response, 'Promoted 2 student(s)')
+        self.assertEqual(self.level(self.a), Level.LEVEL_200)
+        self.assertEqual(self.level(self.b), Level.LEVEL_200)
+        self.assertEqual(self.level(self.final), Level.LEVEL_200)
+
+    def test_inactive_students_are_skipped(self):
+        from apps.students.models import Student
+        from apps.students.services import update_student_status
+        update_student_status(self.b, Student.Status.SUSPENDED)
+        self.run_action([self.a, self.b], confirm='1')
+        self.assertEqual(self.level(self.a), Level.LEVEL_200)
+        self.assertEqual(self.level(self.b), Level.LEVEL_100)
