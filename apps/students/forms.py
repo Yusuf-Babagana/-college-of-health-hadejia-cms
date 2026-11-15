@@ -1,5 +1,6 @@
 from django import forms
 
+from apps.admissions.models import Programme
 from apps.core.constants import Level
 from apps.core.forms import CrispyFormMixin, DepartmentScopedSelect
 from apps.core.utils.validators import phone_number_validator
@@ -57,6 +58,30 @@ class StudentCreateForm(CrispyFormMixin, forms.Form):
         if Student.all_objects.filter(matric_number=matric_number).exists():
             raise forms.ValidationError('A student with this matric number already exists.')
         return matric_number
+
+
+class BulkPromotionForm(CrispyFormMixin, forms.Form):
+    """Pick which students to move up: every active student at a level,
+    optionally narrowed to one programme."""
+    submit_label = 'Preview Promotion'
+
+    level = forms.TypedChoiceField(
+        choices=Level.choices, coerce=int, label='Promote students currently in',
+    )
+    programme = forms.ModelChoiceField(
+        queryset=Programme.objects.none(), required=False, empty_label='All programmes',
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['programme'].queryset = Programme.objects.filter(is_active=True)
+
+    def clean(self):
+        cleaned = super().clean()
+        programme, level = cleaned.get('programme'), cleaned.get('level')
+        if programme and level and level not in programme.levels:
+            self.add_error('level', f'{programme} does not have a {dict(Level.choices)[level]}.')
+        return cleaned
 
 
 class StudentStatusForm(CrispyFormMixin, forms.Form):

@@ -114,6 +114,44 @@ def promote_student(student):
     return student
 
 
+def _promotable_students(level, programme=None):
+    students = Student.objects.filter(status=Student.Status.ACTIVE, level=level).select_related('programme')
+    if programme is not None:
+        students = students.filter(programme=programme)
+    return students
+
+
+def preview_bulk_promotion(*, level, programme=None):
+    """(will_be_promoted, at_final_level) for the active students of a
+    level (optionally one programme) - what promote_students would do."""
+    will_promote = at_final = 0
+    for student in _promotable_students(level, programme):
+        if next_level_for(student) is None:
+            at_final += 1
+        else:
+            will_promote += 1
+    return will_promote, at_final
+
+
+def promote_students(*, level, programme=None):
+    """Bulk promotion: moves every active student at ``level`` (optionally
+    only one programme) up one level, all or nothing. Students already at
+    their programme's final level are left alone - they should be marked
+    Graduated, not promoted. Returns (promoted, skipped_at_final_level).
+    """
+    promoted = skipped = 0
+    with transaction.atomic():
+        for student in _promotable_students(level, programme):
+            new_level = next_level_for(student)
+            if new_level is None:
+                skipped += 1
+                continue
+            student.level = new_level
+            student.save(update_fields=['level', 'updated_at'])  # finance signal bills the new level
+            promoted += 1
+    return promoted, skipped
+
+
 def archive_student(student):
     student.delete()  # soft delete
     return student

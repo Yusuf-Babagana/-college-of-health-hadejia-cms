@@ -10,7 +10,7 @@ from apps.core.mixins import PaginatedListMixin, RoleRequiredMixin
 from apps.departments.selectors import get_active_departments
 
 from . import selectors, services
-from .forms import StudentCreateForm, StudentProfileForm, StudentStatusForm
+from .forms import BulkPromotionForm, StudentCreateForm, StudentProfileForm, StudentStatusForm
 from .models import Student
 
 
@@ -138,6 +138,45 @@ class StudentPromoteView(StudentManagementRoleMixin, View):
         if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
             next_url = reverse('students:student_list')
         return redirect(next_url)
+
+
+class StudentBulkPromoteView(RoleRequiredMixin, FormView):
+    """Super Admin only: promote a whole level (or one programme's level)
+    in one go. Two steps - choose, then see the counts and confirm - so a
+    mass promotion is never one accidental click."""
+    allowed_roles = (Role.SUPER_ADMIN,)
+    form_class = BulkPromotionForm
+    template_name = 'students/bulk_promote.html'
+    success_url = reverse_lazy('dashboard:redirect')
+
+    def form_valid(self, form):
+        level, programme = form.cleaned_data['level'], form.cleaned_data['programme']
+        if self.request.POST.get('confirm') != '1':
+            will_promote, at_final = services.preview_bulk_promotion(level=level, programme=programme)
+            return self.render_to_response(self.get_context_data(
+                form=form, preview={
+                    'level': level, 'level_label': dict(form.fields['level'].choices)[level],
+                    'next_label': self._next_label(level, programme),
+                    'programme': programme, 'will_promote': will_promote, 'at_final': at_final,
+                },
+            ))
+        promoted, skipped = services.promote_students(level=level, programme=programme)
+        scope = f'{programme} ' if programme else ''
+        messages.success(
+            self.request,
+            f'Promoted {promoted} {scope}student(s) from {dict(form.fields["level"].choices)[level]}.'
+            + (f' {skipped} at their final level were left unchanged - mark them Graduated.' if skipped else ''),
+        )
+        return redirect(self.success_url)
+
+    @staticmethod
+    def _next_label(level, programme):
+        from apps.core.constants import Level
+
+        labels = dict(Level.choices)
+        levels = programme.levels if programme else [value for value, _ in Level.choices]
+        higher = [value for value in levels if value > level]
+        return labels[min(higher)] if higher else None
 
 
 class StudentArchiveToggleView(StudentManagementRoleMixin, View):

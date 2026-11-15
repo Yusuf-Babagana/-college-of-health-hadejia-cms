@@ -239,3 +239,95 @@ class StudentPromotionTests(TestCase):
         student_client.post(reverse('students:student_promote', args=[self.student.pk]))
         self.student.refresh_from_db()
         self.assertEqual(self.student.level, Level.LEVEL_100)
+
+
+class BulkPromotionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth import get_user_model
+        from apps.core.constants import Role
+
+        cls.session = AcademicSession.objects.create(name='2096/2097')
+        cls.dept = Department.objects.create(name='Nursing Dept', code='NUR')
+        cls.four = Programme.objects.create(name='Diploma', short_code='DIP', department=cls.dept, duration_levels=4)
+        cls.two = Programme.objects.create(name='Certificate', short_code='CRT', department=cls.dept, duration_levels=2)
+        User = get_user_model()
+        cls.super_admin = User.objects.create_superuser(username='sa', password='x', email='sa@example.test')
+        cls.super_admin.role = Role.SUPER_ADMIN
+        cls.super_admin.save()
+        cls.registrar = User.objects.create_user(username='reg', password='x', role=Role.REGISTRAR)
+
+        def make(tag, programme, level):
+            student, _ = create_student(
+                first_name='T', last_name=tag, email=f'{tag}@example.test', matric_number=f'NUR/{tag}',
+                department=cls.dept, level=level, admission_session=cls.session, programme=programme,
+            )
+            return student
+
+        cls.d1, cls.d2 = make('d1', cls.four, Level.LEVEL_100), make('d2', cls.four, Level.LEVEL_100)
+        cls.c1 = make('c1', cls.two, Level.LEVEL_100)
+        cls.c_final = make('cf', cls.two, Level.LEVEL_200)   # final level of a 2-level programme
+        cls.d_other = make('d3', cls.four, Level.LEVEL_300)  # different level: untouched
+
+    def post(self, user, **data):
+        from django.test import Client
+        from django.urls import reverse
+        client = Client()
+        client.force_login(user)
+        return client.post(reverse('students:bulk_promote'), data, follow=True)
+
+    def level(self, student):
+        student.refresh_from_db()
+        return student.level
+
+    def test_preview_changes_nothing_and_shows_counts(self):
+        response = self.post(self.super_admin, level=100, programme='')
+        self.assertContains(response, 'Please confirm')
+        self.assertContains(response, 'Yes, promote 3 student(s)')
+        self.assertEqual(self.level(self.d1), Level.LEVEL_100)
+
+    def test_confirm_promotes_everyone_at_the_level_only(self):
+        response = self.post(self.super_admin, level=100, programme='', confirm='1')
+        self.assertContains(response, 'Promoted 3 student(s)')
+        for student in (self.d1, self.d2, self.c1):
+            self.assertEqual(self.level(student), Level.LEVEL_200)
+        self.assertEqual(self.level(self.d_other), Level.LEVEL_300)
+        self.assertEqual(self.level(self.c_final), Level.LEVEL_200)
+
+    def test_can_be_scoped_to_one_programme(self):
+        self.post(self.super_admin, level=100, programme=self.four.pk, confirm='1')
+        self.assertEqual(self.level(self.d1), Level.LEVEL_200)
+        self.assertEqual(self.level(self.c1), Level.LEVEL_100)
+
+    def test_students_at_final_level_are_skipped_not_promoted(self):
+        response = self.post(self.super_admin, level=200, programme=self.two.pk, confirm='1')
+        self.assertContains(response, 'Promoted 0')
+        self.assertContains(response, '1 at their final level')
+        self.assertEqual(self.level(self.c_final), Level.LEVEL_200)
+
+    def test_only_active_students_are_promoted(self):
+        from apps.students.models import Student
+        from apps.students.services import update_student_status
+        update_student_status(self.d2, Student.Status.SUSPENDED)
+        self.post(self.super_admin, level=100, programme=self.four.pk, confirm='1')
+        self.assertEqual(self.level(self.d1), Level.LEVEL_200)
+        self.assertEqual(self.level(self.d2), Level.LEVEL_100)
+
+    def test_invalid_programme_level_pair_rejected(self):
+        response = self.post(self.super_admin, level=300, programme=self.two.pk, confirm='1')
+        self.assertContains(response, 'does not have a')
+        self.assertEqual(self.level(self.d_other), Level.LEVEL_300)
+
+    def test_super_admin_only(self):
+        from django.urls import reverse
+        self.post(self.registrar, level=100, programme='', confirm='1')
+        self.assertEqual(self.level(self.d1), Level.LEVEL_100)
+
+    def test_button_is_on_the_super_admin_dashboard(self):
+        from django.test import Client
+        from django.urls import reverse
+        client = Client()
+        client.force_login(self.super_admin)
+        response = client.get(reverse('dashboard:super_admin'))
+        self.assertContains(response, reverse('students:bulk_promote'))
+        self.assertContains(response, 'Promote Students')
