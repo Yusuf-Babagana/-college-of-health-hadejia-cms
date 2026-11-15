@@ -177,7 +177,7 @@ class LevelSemesterStateView(AcademicManagementRoleMixin, FormView):
             {'level': value, 'label': label, 'state': states_by_level.get(value)}
             for value, label in Level.choices
         ]
-        context['semesters'] = Semester.objects.select_related('session')
+        context['semesters'] = Semester.objects.select_related('session', 'programme')
         context['programmes'] = selectors.get_active_programmes()
         context['selection_form'] = kwargs.get('selection_form') or LevelSemesterSelectionForm()
         return context
@@ -303,7 +303,7 @@ class ProgrammeLevelSemesterOptionsView(AcademicManagementRoleMixin, View):
             return JsonResponse({'semesters': []})
         semesters = [
             {'value': str(s.pk), 'label': str(s)}
-            for s in selectors.get_semesters_for_selection()
+            for s in selectors.get_semesters_for_selection(programme)
         ]
         return JsonResponse({'semesters': semesters})
 

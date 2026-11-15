@@ -59,7 +59,7 @@ class FeeStructureForm(CrispyFormMixin, forms.ModelForm):
 
         self.fields['semester'].required = False
         self.fields['semester'].empty_label = 'The whole session'
-        self.fields['semester'].queryset = Semester.objects.select_related('session')
+        self.fields['semester'].queryset = Semester.objects.select_related('session', 'programme')
 
     def clean(self):
         cleaned_data = super().clean()

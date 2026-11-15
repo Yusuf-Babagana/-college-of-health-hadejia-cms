@@ -95,7 +95,7 @@ class LevelSemesterStateForm(CrispyFormMixin, forms.Form):
 
     level = forms.TypedChoiceField(choices=Level.choices, coerce=int)
     semester = forms.ModelChoiceField(
-        queryset=Semester.objects.select_related('session'),
+        queryset=Semester.objects.select_related('session', 'programme'),
         required=False,
         help_text='Leave blank to mark this level as having no semester in progress.',
     )
@@ -109,7 +109,7 @@ class LevelSemesterSelectionForm(forms.Form):
     """
     programme = forms.ModelChoiceField(queryset=Programme.objects.none())
     level = forms.TypedChoiceField(choices=Level.choices, coerce=int)
-    semester = forms.ModelChoiceField(queryset=Semester.objects.select_related('session'))
+    semester = forms.ModelChoiceField(queryset=Semester.objects.select_related('session', 'programme'))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -122,6 +122,8 @@ class LevelSemesterSelectionForm(forms.Form):
         semester = cleaned.get('semester')
         if programme and level and level not in programme.levels:
             self.add_error('level', f'{programme} does not have a {dict(Level.choices)[level]}.')
+        elif programme and semester and semester.programme_id and semester.programme_id != programme.pk:
+            self.add_error('semester', f'{semester} belongs to a different programme than {programme}.')
         elif programme and level and semester and LevelSemesterState.objects.filter(
             programme=programme, level=level, semester=semester,
         ).exists():

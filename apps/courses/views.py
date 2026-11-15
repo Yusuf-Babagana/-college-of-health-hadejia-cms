@@ -158,7 +158,7 @@ class CourseOfferingListView(HODCourseOfferingMixin, PaginatedListMixin, ListVie
         if self.is_overseer():
             context['departments'] = get_active_departments()
             context['current_department'] = self.request.GET.get('department', '')
-        context['semesters'] = Semester.objects.select_related('session')
+        context['semesters'] = Semester.objects.select_related('session', 'programme')
         context['current_semester'] = self.request.GET.get('semester', '')
         context['show_archived'] = self.request.GET.get('archived') == '1'
         return context
@@ -276,7 +276,7 @@ class DepartmentRegistrationListView(HODCourseOfferingMixin, PaginatedListMixin,
         if self.is_overseer():
             context['departments'] = get_active_departments()
             context['current_department'] = self.request.GET.get('department', '')
-        context['semesters'] = Semester.objects.select_related('session')
+        context['semesters'] = Semester.objects.select_related('session', 'programme')
         context['current_semester'] = self.request.GET.get('semester', '')
         context['status_choices'] = CourseRegistration.Status.choices
         context['current_status'] = self.request.GET.get('status', '')

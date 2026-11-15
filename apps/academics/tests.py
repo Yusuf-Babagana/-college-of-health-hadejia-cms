@@ -369,3 +369,80 @@ class ProgrammeSessionSemesterFormTests(TestCase):
         response = self.client.post(reverse('admin:academics_semester_add'), self.data(session=self.s_midwifery.pk))
         self.assertEqual(response.status_code, 200)  # re-rendered with the error
         self.assertFalse(Semester.objects.exists())
+
+
+class SemesterUniquePerProgrammeTests(TestCase):
+    """Uniqueness is Programme + Academic Session + Semester name."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.academics.forms import SemesterForm
+        cls.form_class = SemesterForm
+        cls.certificate = Programme.objects.create(name='Certificate in Community Health', short_code='CCH2', duration_levels=2)
+        cls.nursing = Programme.objects.create(name='ND Nursing', short_code='NDN', duration_levels=3)
+        cls.chd = Programme.objects.create(name='ND Community Health', short_code='NDC', duration_levels=3)
+        cls.session = AcademicSession.objects.create(name='2026/2027')  # no programmes listed: applies to all
+
+    def submit(self, programme, name):
+        form = self.form_class(data={'programme': programme.pk, 'session': self.session.pk, 'name': name})
+        return form, form.is_valid() and form.save()
+
+    def test_1_same_name_same_session_different_programmes_allowed(self):
+        for programme in (self.certificate, self.nursing, self.chd):
+            form, saved = self.submit(programme, 'first')
+            self.assertTrue(saved, form.errors)
+        self.assertEqual(Semester.objects.filter(session=self.session, name='first').count(), 3)
+
+    def test_2_different_names_same_session_same_programme_allowed(self):
+        self.assertTrue(self.submit(self.certificate, 'first')[1])
+        self.assertTrue(self.submit(self.certificate, 'second')[1])
+
+    def test_3_same_programme_session_and_name_is_rejected_with_a_clear_message(self):
+        self.assertTrue(self.submit(self.certificate, 'first')[1])
+        form, saved = self.submit(self.certificate, 'first')
+        self.assertFalse(saved)
+        self.assertIn('already exists for this Programme, Academic Session and Semester name', str(form.errors))
+        self.assertEqual(Semester.objects.filter(programme=self.certificate).count(), 1)
+
+    def test_database_constraint_also_blocks_the_duplicate(self):
+        from django.db import IntegrityError, transaction
+        Semester.objects.create(programme=self.certificate, session=self.session, name='first')
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Semester.objects.create(programme=self.certificate, session=self.session, name='first')
+
+    def test_legacy_semesters_without_a_programme_stay_unique_per_session_and_name(self):
+        from django.core.exceptions import ValidationError
+        from django.db import IntegrityError, transaction
+        Semester.objects.create(session=self.session, name='first')
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Semester.objects.create(session=self.session, name='first')
+        with self.assertRaises(ValidationError):
+            Semester(session=self.session, name='first').validate_constraints()
+        # ...but a programme-specific one alongside it is fine
+        self.assertTrue(self.submit(self.certificate, 'first')[1])
+
+    def test_4_existing_semesters_remain_accessible(self):
+        legacy = Semester.objects.create(session=self.session, name='second')
+        LevelSemesterState.objects.create(level=100, semester=legacy)
+        self.assertEqual(selectors.get_semester_for_level(100), legacy)
+        self.assertEqual(str(legacy), 'Second Semester - 2026/2027')  # label unchanged for legacy rows
+        self.assertIn(legacy, selectors.get_semester_list())
+
+    def test_label_distinguishes_same_named_semesters_of_different_programmes(self):
+        a = Semester.objects.create(programme=self.certificate, session=self.session, name='first')
+        b = Semester.objects.create(programme=self.nursing, session=self.session, name='first')
+        self.assertEqual(str(a), 'First Semester - 2026/2027 [CCH2]')
+        self.assertNotEqual(str(a), str(b))
+
+    def test_5_level_states_only_offer_and_accept_the_programmes_own_semesters(self):
+        from apps.academics.forms import LevelSemesterSelectionForm
+        mine = Semester.objects.create(programme=self.certificate, session=self.session, name='first')
+        theirs = Semester.objects.create(programme=self.nursing, session=self.session, name='first')
+        legacy = Semester.objects.create(session=self.session, name='second')
+        offered = set(selectors.get_semesters_for_selection(self.certificate))
+        self.assertEqual(offered, {mine, legacy})
+        form = LevelSemesterSelectionForm(data={'programme': self.certificate.pk, 'level': 100, 'semester': theirs.pk})
+        self.assertFalse(form.is_valid())
+        self.assertIn('semester', form.errors)
+        ok = LevelSemesterSelectionForm(data={'programme': self.certificate.pk, 'level': 100, 'semester': mine.pk})
+        self.assertTrue(ok.is_valid(), ok.errors)
