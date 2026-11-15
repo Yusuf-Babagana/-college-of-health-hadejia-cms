@@ -1,10 +1,12 @@
 from django import forms
+from django.core.exceptions import ValidationError
 
 from apps.core.constants import Level
 from apps.core.forms import CrispyFormMixin
 
 from apps.admissions.models import Programme
 
+from . import selectors
 from .models import AcademicSession, LevelSemesterState, Semester
 from .models.level_state import DUPLICATE_MESSAGE
 
@@ -14,19 +16,69 @@ class AcademicSessionForm(CrispyFormMixin, forms.ModelForm):
 
     class Meta:
         model = AcademicSession
-        fields = ('name', 'start_date', 'end_date')
+        fields = ('name', 'start_date', 'end_date', 'programmes')
         widgets = {
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
         }
+        help_texts = {
+            'programmes': 'Hold Ctrl/Cmd to pick several. Leave empty if this session applies to every programme.',
+        }
 
 
-class SemesterForm(CrispyFormMixin, forms.ModelForm):
+class ProgrammeSessionFieldsMixin:
+    """Programme -> Academic Session -> Semester for Semester forms (the
+    app's own screen and the Django admin share it). The Session choices
+    are limited to the posted/saved Programme's sessions, so a session
+    that doesn't belong to the programme is rejected by the server as an
+    invalid choice - the JavaScript only makes that nicer to use.
+    """
+
+    def _setup_programme_session(self):
+        from django.urls import reverse
+
+        programme_field = self.fields['programme']
+        programme_field.required = True
+        programme_field.queryset = Programme.objects.filter(is_active=True)
+        programme_field.empty_label = '--------- Select a programme first ---------'
+        programme_field.widget.attrs['data-sessions-url'] = reverse('academics:semester_session_options')
+        programme_field.widget.attrs['data-session-target'] = 'session'
+
+        raw = self.data.get(self.add_prefix('programme')) if self.is_bound else self.instance.programme_id
+        programme = None
+        if raw:
+            try:
+                programme = Programme.objects.filter(pk=raw).first()
+            except (ValueError, ValidationError):
+                programme = None
+
+        session_field = self.fields['session']
+        session_field.queryset = selectors.get_sessions_for_programme(programme)
+        session_field.empty_label = '--------- Select a session ---------'
+        if programme is None:
+            session_field.widget.attrs['disabled'] = True  # until a programme is chosen
+
+    def clean(self):
+        cleaned = super().clean()
+        programme, session = cleaned.get('programme'), cleaned.get('session')
+        if programme and session and not session.applies_to(programme):
+            self.add_error('session', f'{session} is not an academic session for {programme}.')
+        return cleaned
+
+    class Media:
+        js = ('js/programme-session-select.js',)
+
+
+class SemesterForm(ProgrammeSessionFieldsMixin, CrispyFormMixin, forms.ModelForm):
     submit_label = 'Save Semester'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._setup_programme_session()
 
     class Meta:
         model = Semester
-        fields = ('session', 'name', 'registration_start', 'registration_end')
+        fields = ('programme', 'session', 'name', 'registration_start', 'registration_end')
         widgets = {
             'registration_start': forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
             'registration_end': forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),

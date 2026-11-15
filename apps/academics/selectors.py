@@ -17,9 +17,24 @@ def get_active_sessions():
     return AcademicSession.objects.all()
 
 
+def get_sessions_for_programme(programme):
+    """Academic sessions that apply to a programme: those it is attached
+    to, plus every session with no programmes listed (those apply to all).
+    No programme -> no sessions, which keeps the Session dropdown empty
+    until a Programme has been chosen."""
+    from django.db.models import Q
+
+    if programme is None:
+        return AcademicSession.objects.none()
+    programme_id = getattr(programme, 'pk', programme)
+    return AcademicSession.objects.filter(
+        Q(programmes=programme_id) | Q(programmes__isnull=True),
+    ).distinct()
+
+
 def get_semester_list(*, session=None, include_archived=False):
     manager = Semester.all_objects if include_archived else Semester.objects
-    qs = manager.select_related('session')
+    qs = manager.select_related('session', 'programme')
     if session:
         qs = qs.filter(session_id=session)
     return qs

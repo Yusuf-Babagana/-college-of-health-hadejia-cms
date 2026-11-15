@@ -15,6 +15,12 @@ class AcademicSession(BaseModel):
     )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    programmes = models.ManyToManyField(
+        'admissions.Programme',
+        blank=True,
+        related_name='academic_sessions',
+        help_text='Programmes this session runs for. Leave empty if it applies to every programme.',
+    )
 
     class Meta:
         verbose_name = 'Academic Session'
@@ -23,6 +29,15 @@ class AcademicSession(BaseModel):
 
     def __str__(self):
         return self.name
+
+    def applies_to(self, programme):
+        """True if this session runs for ``programme``. A session with no
+        programmes listed applies to all of them (every session that
+        existed before programmes were attached)."""
+        programme_id = getattr(programme, 'pk', programme)
+        if not self.programmes.exists():
+            return True
+        return self.programmes.filter(pk=programme_id).exists()
 
     def clean(self):
         if self.name and '/' in self.name:

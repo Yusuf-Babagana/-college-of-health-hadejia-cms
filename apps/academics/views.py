@@ -268,6 +268,19 @@ def _get_programme(raw_id):
         return None
 
 
+class ProgrammeSessionOptionsView(AcademicManagementRoleMixin, View):
+    """JSON: the academic sessions that apply to a programme, for the
+    Semester form's Programme -> Session dropdowns."""
+
+    def get(self, request):
+        programme = _get_programme(request.GET.get('programme'))
+        sessions = [
+            {'value': str(session.pk), 'label': session.name}
+            for session in selectors.get_sessions_for_programme(programme)
+        ]
+        return JsonResponse({'sessions': sessions})
+
+
 class ProgrammeLevelOptionsView(AcademicManagementRoleMixin, View):
     """JSON: the levels a programme spans, for the cascading selector."""
 
