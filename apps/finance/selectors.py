@@ -82,6 +82,35 @@ def resolve_fee_structure_for_scope(*, department, level, programme_id, fee_type
     )
 
 
+def resolve_fee_structures_for_student(student):
+    """Every published FeeStructure currently billing this student (one
+    per fee type, most-specific-wins). The student -> fees direction of
+    the same resolution get_eligible_students runs fees -> students; both
+    go through get_fee_structure_for so they cannot disagree. The level's
+    current semester is looked up once, not once per fee type.
+    """
+    from apps.academics.selectors import get_semester_for_level
+
+    semester = get_semester_for_level(student.level, student.programme_id)
+    if semester is None:
+        return []
+
+    fee_type_ids = (
+        FeeStructure.objects.filter(
+            department=student.department_id, level=student.level,
+            session=semester.session, is_published=True,
+        ).values_list('fee_type_id', flat=True).distinct()
+    )
+    resolved = (
+        get_fee_structure_for(
+            department=student.department_id, level=student.level, session=semester.session,
+            fee_type=fee_type_id, programme=student.programme_id, semester=semester,
+        )
+        for fee_type_id in fee_type_ids
+    )
+    return [fee_structure for fee_structure in resolved if fee_structure]
+
+
 def get_eligible_students(fee_structure):
     """Active students this fee structure actually bills: right
     department, level and programme (a fee with no programme covers the

@@ -132,15 +132,15 @@ class FeeStructureListView(FinanceManagementRoleMixin, PaginatedListMixin, ListV
 
 
 def _report_generation(request, fee_structure):
-    """Publishing a fee generates invoices for every eligible student -
-    nobody has to request one. Re-saving a published fee is safe: it only
-    bills students who don't already have an invoice (new snapshots of the
-    amount never rewrite existing invoices).
+    """Reports the outcome of services.generate_invoices_for_published_fee
+    (publishing a fee bills its eligible students; nobody has to request
+    an invoice).
     """
-    if not fee_structure.is_published:
+    result = services.generate_invoices_for_published_fee(fee_structure)
+    if result is None:
         messages.info(request, 'Fee is unpublished: no invoices generated and students cannot see or pay it.')
         return
-    created, skipped = services.bulk_generate_invoices(fee_structure=fee_structure)
+    created, skipped = result
     messages.success(
         request,
         f'{created} new invoice(s) generated for eligible students'
@@ -350,11 +350,13 @@ class IndividualInvoiceGenerateView(FinanceManagementRoleMixin, FormView):
 
 
 class MyInvoicesView(RoleRequiredMixin, ListView):
-    """FR-FIN-04 (student-facing half): a student's own invoices. Invoices
-    for every published fee that applies to the student's programme,
-    level and current semester/session appear automatically - nothing to
-    search for or request. Enforced here on the backend, not in the
-    template.
+    """FR-FIN-04 (student-facing half): a student's own invoices. Read-only:
+    invoices for every published fee that applies to the student's
+    programme, level and current semester/session are issued when the
+    event that creates the obligation happens (fee published, level
+    semester opened, student admitted/moved - see finance.signals), so
+    there is nothing to search for or request. Enforced here on the
+    backend, not in the template.
     """
     allowed_roles = (Role.STUDENT,)
     template_name = 'finance/my_invoices.html'
@@ -364,7 +366,6 @@ class MyInvoicesView(RoleRequiredMixin, ListView):
         student_profile = getattr(self.request.user, 'student_profile', None)
         if not student_profile:
             return Invoice.objects.none()
-        services.sync_invoices_for_student(student_profile)
         return selectors.get_invoices_for_student(student_profile)
 
     def get_context_data(self, **kwargs):
