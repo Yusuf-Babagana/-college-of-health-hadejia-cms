@@ -10,6 +10,39 @@
 
 {% if student_profile %}
 <div class="card shadow-sm mb-4">
+  <div class="card-body d-flex align-items-center gap-3 flex-wrap">
+    {% if user.avatar %}
+      <img src="{{ user.avatar.url }}" alt="Your profile picture" class="rounded shadow-sm"
+           style="width: 78px; height: 98px; object-fit: cover; border: 2px solid #dbeafe;">
+    {% else %}
+      <div class="rounded d-flex align-items-center justify-content-center text-muted"
+           style="width: 78px; height: 98px; background: #eff6ff; border: 2px dashed #93c5fd;">
+        <i class="bi bi-person-bounding-box fs-2"></i>
+      </div>
+    {% endif %}
+    <div class="flex-grow-1">
+      <div class="fw-semibold fs-5">{{ user.get_full_name|default:user.username }}</div>
+      <div class="text-muted small">{{ student_profile.matric_number }}</div>
+      {% if profile_completeness %}
+        <div class="progress mt-2" style="height: 6px; max-width: 260px;">
+          <div class="progress-bar {% if profile_completeness.complete %}bg-success{% else %}bg-primary{% endif %}" style="width: {{ profile_completeness.percent }}%;"></div>
+        </div>
+        <div class="small text-muted mt-1">Profile {{ profile_completeness.percent }}% complete</div>
+      {% endif %}
+    </div>
+    <a href="{% url 'students:my_profile' %}" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-person-lines-fill me-1"></i>{% if profile_completeness.complete %}View / edit profile{% else %}Complete my profile{% endif %}
+    </a>
+  </div>
+  {% if profile_completeness and not profile_completeness.complete %}
+  <div class="card-footer bg-warning-subtle small">
+    <i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>
+    Still needed: {{ profile_completeness.missing|join:", " }}. Your profile picture is printed on your Course Registration Form.
+  </div>
+  {% endif %}
+</div>
+
+<div class="card shadow-sm mb-4">
   <div class="card-body">
     <div class="row text-center g-3">
       <div class="col-6 col-md-3">
@@ -80,6 +113,7 @@
     <div class="card shadow-sm h-100">
       <div class="card-header bg-transparent"><i class="bi bi-link-45deg me-2 text-brand"></i>Quick Links</div>
       <div class="list-group list-group-flush">
+        <a href="{% url 'students:my_profile' %}" class="list-group-item list-group-item-action">My Profile &amp; Guardian</a>
         <a href="{% url 'courses:available_courses' %}" class="list-group-item list-group-item-action">Register Courses</a>
         <a href="{% url 'courses:my_registrations' %}" class="list-group-item list-group-item-action">My Schedule</a>
         <a href="{% url 'courses:my_carryover' %}" class="list-group-item list-group-item-action">My Carryover</a>

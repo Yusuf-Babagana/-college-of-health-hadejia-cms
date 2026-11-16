@@ -394,3 +394,297 @@ class AdminPromoteActionTests(TestCase):
         self.run_action([self.a, self.b], confirm='1')
         self.assertEqual(self.level(self.a), Level.LEVEL_200)
         self.assertEqual(self.level(self.b), Level.LEVEL_100)
+
+
+import shutil
+import tempfile
+from datetime import date, timedelta
+from io import BytesIO
+from unittest import mock
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, override_settings
+from django.urls import reverse
+
+from apps.accounts.models import User
+from apps.students.models import Student
+
+_MEDIA = tempfile.mkdtemp(prefix='cohst-test-media-')
+
+
+def _image_bytes(size=(1200, 1500), fmt='PNG', mode='RGB', color=(30, 90, 200)):
+    from PIL import Image
+    buffer = BytesIO()
+    Image.new(mode, size, color).save(buffer, fmt)
+    return buffer.getvalue()
+
+
+@override_settings(MEDIA_ROOT=_MEDIA)
+class StudentProfileTests(TestCase):
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(_MEDIA, ignore_errors=True)
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth import get_user_model
+        from apps.core.constants import Role
+
+        cls.session = AcademicSession.objects.create(name='2096/2097')
+        cls.dept = Department.objects.create(name='Nursing Dept', code='NUR')
+        cls.student, _ = create_student(
+            first_name='Amina', last_name='Bello', email='amina@example.test', matric_number='NUR/P/1',
+            department=cls.dept, level=Level.LEVEL_100, admission_session=cls.session,
+        )
+        cls.student.user.must_change_password = False
+        cls.student.user.save(update_fields=['must_change_password'])
+        cls.registrar = get_user_model().objects.create_user(username='reg', password='x', role=Role.REGISTRAR)
+
+    def client_for(self, user):
+        client = Client()
+        client.force_login(user)
+        return client
+
+    def payload(self, **overrides):
+        data = {
+            'account-email': 'amina.new@example.test', 'account-phone_number': '08031234567',
+            'personal-date_of_birth': '2004-03-15', 'personal-gender': 'female',
+            'personal-marital_status': 'single', 'personal-religion': 'islam',
+            'personal-nationality': 'Nigerian', 'personal-state_of_origin': 'Jigawa',
+            'personal-lga_of_origin': 'Hadejia', 'personal-blood_group': 'O+', 'personal-genotype': 'AA',
+            'personal-home_address': '12 Market Road, Hadejia',
+            'guardian-full_name': 'Alhaji Bello Musa', 'guardian-relationship': 'father',
+            'guardian-phone_number': '08099998888', 'guardian-email': 'bello@example.test',
+            'guardian-occupation': 'Trader', 'guardian-address': '12 Market Road, Hadejia',
+        }
+        data.update(overrides)
+        return data
+
+    def save_profile(self, photo=None, **overrides):
+        data = self.payload(**overrides)
+        if photo is not None:
+            data['account-photo'] = photo
+        return self.client_for(self.student.user).post(reverse('students:my_profile'), data, follow=True)
+
+    def photo(self, name='me.png', **kwargs):
+        return SimpleUploadedFile(name, _image_bytes(**kwargs), content_type='image/png')
+
+    # --- the page -------------------------------------------------------
+    def test_student_sees_the_profile_page_with_all_three_sections(self):
+        response = self.client_for(self.student.user).get(reverse('students:my_profile'))
+        self.assertContains(response, 'Contact &amp; profile picture')
+        self.assertContains(response, 'Personal details')
+        self.assertContains(response, 'Parent / guardian details')
+        self.assertContains(response, 'Profile completeness')
+
+    def test_only_students_can_open_it(self):
+        response = self.client_for(self.registrar).get(reverse('students:my_profile'))
+        self.assertNotEqual(response.status_code, 200)
+
+    # --- saving ---------------------------------------------------------
+    def test_saves_personal_details_guardian_and_contact_together(self):
+        response = self.save_profile(photo=self.photo())
+        self.assertContains(response, 'Your profile has been saved')
+        student = Student.objects.get(pk=self.student.pk)
+        self.assertEqual(student.date_of_birth, date(2004, 3, 15))
+        self.assertEqual((student.gender, student.state_of_origin, student.blood_group), ('female', 'Jigawa', 'O+'))
+        self.assertEqual(student.home_address, '12 Market Road, Hadejia')
+        guardian = student.guardian
+        self.assertEqual(
+            (guardian.full_name, guardian.relationship, guardian.occupation),
+            ('Alhaji Bello Musa', 'father', 'Trader'),
+        )
+        self.assertEqual((guardian.phone_number, guardian.email), ('08099998888', 'bello@example.test'))
+        student.user.refresh_from_db()
+        self.assertEqual((student.user.email, student.user.phone_number), ('amina.new@example.test', '08031234567'))
+
+    def test_saving_again_updates_the_same_guardian(self):
+        from apps.students.models import Guardian
+        self.save_profile()
+        self.save_profile(**{'guardian-full_name': 'Hajiya Zainab', 'guardian-relationship': 'mother'})
+        self.assertEqual(Guardian.objects.filter(student=self.student).count(), 1)
+        self.assertEqual(Guardian.objects.get(student=self.student).full_name, 'Hajiya Zainab')
+
+    def test_nationality_is_only_a_suggestion_until_saved(self):
+        self.assertEqual(Student.objects.get(pk=self.student.pk).nationality, '')
+        response = self.client_for(self.student.user).get(reverse('students:my_profile'))
+        self.assertContains(response, 'value="Nigerian"')
+
+    # --- validation -----------------------------------------------------
+    def test_required_fields_and_guardian_are_enforced(self):
+        for field in ('personal-date_of_birth', 'personal-gender', 'personal-home_address',
+                      'guardian-full_name', 'guardian-relationship', 'guardian-phone_number', 'guardian-address'):
+            response = self.save_profile(**{field: ''})
+            self.assertNotContains(response, 'Your profile has been saved', msg_prefix=field)
+        self.assertIsNone(Student.objects.get(pk=self.student.pk).date_of_birth)
+
+    def test_date_of_birth_must_be_sensible(self):
+        future = (date.today() + timedelta(days=5)).isoformat()
+        self.assertContains(self.save_profile(**{'personal-date_of_birth': future}), 'cannot be in the future')
+        self.assertContains(
+            self.save_profile(**{'personal-date_of_birth': '1900-01-01'}), 'Please check the date of birth',
+        )
+
+    def test_bad_phone_numbers_rejected(self):
+        response = self.save_profile(**{'guardian-phone_number': 'call me'})
+        self.assertNotContains(response, 'Your profile has been saved')
+
+    def test_a_failed_save_changes_nothing(self):
+        bad = SimpleUploadedFile('fake.png', b'not really an image', content_type='image/png')
+        response = self.save_profile(photo=bad)
+        self.assertNotContains(response, 'Your profile has been saved')
+        student = Student.objects.get(pk=self.student.pk)
+        self.assertIsNone(student.date_of_birth)  # the valid personal section was not half-saved
+        self.assertFalse(hasattr(student, 'guardian'))
+
+    def test_oversized_and_wrong_type_photos_rejected(self):
+        wrong = SimpleUploadedFile('cv.pdf', b'%PDF-1.4', content_type='application/pdf')
+        self.assertNotContains(self.save_profile(photo=wrong), 'Your profile has been saved')
+        big = SimpleUploadedFile('big.png', b'x' * (3 * 1024 * 1024), content_type='image/png')
+        self.assertNotContains(self.save_profile(photo=big), 'Your profile has been saved')
+
+    # --- the picture ----------------------------------------------------
+    def test_photo_is_resized_converted_and_stored_under_a_random_name(self):
+        from PIL import Image
+        self.save_profile(photo=self.photo(name='IMG_001 my face.png', size=(1200, 1500)))
+        avatar = User.objects.get(pk=self.student.user.pk).avatar
+        self.assertTrue(avatar.name.endswith('.jpg'))
+        self.assertNotIn('my face', avatar.name)
+        with Image.open(avatar.path) as stored:
+            self.assertEqual(stored.format, 'JPEG')
+            self.assertLessEqual(max(stored.size), 600)
+            self.assertAlmostEqual(stored.size[1] / stored.size[0], 1.25, places=1)  # proportions kept
+
+    def test_landscape_photo_is_cropped_to_passport_proportions_not_stretched(self):
+        from PIL import Image
+        self.save_profile(photo=self.photo(size=(1600, 1000)))
+        with Image.open(User.objects.get(pk=self.student.user.pk).avatar.path) as stored:
+            self.assertEqual(stored.size, (480, 600))
+
+    def test_transparent_png_is_flattened_onto_white(self):
+        from PIL import Image
+        self.save_profile(photo=SimpleUploadedFile(
+            'logo.png', _image_bytes(size=(200, 200), mode='RGBA', color=(0, 0, 0, 0)), content_type='image/png',
+        ))
+        with Image.open(User.objects.get(pk=self.student.user.pk).avatar.path) as stored:
+            self.assertGreater(min(stored.getpixel((100, 100))), 240)  # white, not black
+
+    def test_replacing_the_photo_deletes_the_old_file(self):
+        import os
+        self.save_profile(photo=self.photo())
+        first = User.objects.get(pk=self.student.user.pk).avatar.path
+        self.save_profile(photo=self.photo(color=(200, 30, 30)))
+        second = User.objects.get(pk=self.student.user.pk).avatar.path
+        self.assertNotEqual(first, second)
+        self.assertFalse(os.path.exists(first))
+        self.assertTrue(os.path.exists(second))
+
+    def test_saving_without_a_new_photo_keeps_the_current_one(self):
+        self.save_profile(photo=self.photo())
+        before = User.objects.get(pk=self.student.user.pk).avatar.name
+        self.save_profile()
+        self.assertEqual(User.objects.get(pk=self.student.user.pk).avatar.name, before)
+
+    # --- dashboard ------------------------------------------------------
+    def test_dashboard_prompts_until_the_profile_is_complete(self):
+        client = self.client_for(self.student.user)
+        response = client.get(reverse('dashboard:student'))
+        self.assertContains(response, 'Complete my profile')
+        self.assertContains(response, 'Still needed')
+        self.assertContains(response, 'Profile picture')
+        self.save_profile(photo=self.photo())
+        response = client.get(reverse('dashboard:student'))
+        self.assertContains(response, 'Profile 100% complete')
+        self.assertNotContains(response, 'Still needed')
+        self.assertContains(response, 'View / edit profile')
+
+    def test_sidebar_sends_students_to_their_profile_page(self):
+        response = self.client_for(self.student.user).get(reverse('dashboard:student'))
+        self.assertContains(response, 'href="%s"' % reverse('students:my_profile'))
+
+    def test_admin_shows_the_guardian_on_the_student_record(self):
+        from django.contrib.auth import get_user_model
+        self.save_profile()
+        admin_user = get_user_model().objects.create_superuser(username='su2', password='x', email='su2@example.test')
+        response = self.client_for(admin_user).get(reverse('admin:students_student_change', args=[self.student.pk]))
+        self.assertContains(response, 'Alhaji Bello Musa')
+
+
+@override_settings(MEDIA_ROOT=_MEDIA)
+class RegistrationFormPhotoTests(TestCase):
+    """The Course Registration Form (registration slip) carries the logo and the profile picture."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.academics.models import LevelSemesterState, Semester
+        from apps.core.constants import SemesterName
+
+        cls.session = AcademicSession.objects.create(name='2096/2097')
+        cls.semester = Semester.objects.create(session=cls.session, name=SemesterName.FIRST)
+        LevelSemesterState.objects.create(level=Level.LEVEL_100, semester=cls.semester)
+        cls.dept = Department.objects.create(name='Nursing Dept', code='NUR')
+        cls.student, _ = create_student(
+            first_name='Amina', last_name='Bello', email='amina@example.test', matric_number='NUR/C/1',
+            department=cls.dept, level=Level.LEVEL_100, admission_session=cls.session,
+        )
+        cls.student.user.must_change_password = False
+        cls.student.user.save(update_fields=['must_change_password'])
+        Student.objects.filter(pk=cls.student.pk).update(
+            gender='female', date_of_birth=date(2004, 3, 15), state_of_origin='Jigawa',
+        )
+
+    def slip(self):
+        client = Client()
+        client.force_login(self.student.user)
+        with mock.patch('apps.courses.views.selectors.is_registration_approved', return_value=True):
+            return client.get(reverse('courses:registration_slip'))
+
+    def pdf(self, response):
+        from pypdf import PdfReader
+        reader = PdfReader(BytesIO(response.content))
+        text = '\n'.join(page.extract_text() for page in reader.pages)
+        images = sum(len(page.images) for page in reader.pages)
+        return text, images
+
+    def test_form_without_a_photo_shows_an_affix_box_and_still_prints(self):
+        response = self.slip()
+        self.assertEqual(response.status_code, 200)
+        text, images = self.pdf(response)
+        self.assertEqual(images, 1)  # the college crest only
+        self.assertIn('Affix passport', text)
+        self.assertIn('COURSE REGISTRATION FORM', text)
+
+    def test_form_carries_the_profile_picture_and_bio_data(self):
+        from apps.students.services import update_profile_photo
+        update_profile_photo(self.student.user, SimpleUploadedFile('p.png', _image_bytes(), content_type='image/png'))
+        text, images = self.pdf(self.slip())
+        self.assertEqual(images, 2)  # crest + the student's picture
+        self.assertNotIn('Affix passport', text)
+        for expected in ('AMINA BELLO', 'NUR/C/1', '15 March 2004', 'Female', 'Jigawa'):
+            self.assertIn(expected, text)
+
+    def test_a_missing_picture_file_does_not_break_the_form(self):
+        import os
+        from apps.students.services import update_profile_photo
+        update_profile_photo(self.student.user, SimpleUploadedFile('p.png', _image_bytes(), content_type='image/png'))
+        os.remove(self.student.user.avatar.path)
+        response = self.slip()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Affix passport', self.pdf(response)[0])
+
+
+class ProfileCompletenessTests(TestCase):
+    def test_new_student_is_incomplete_and_lists_what_is_missing(self):
+        from apps.students.selectors import get_profile_completeness
+        session = AcademicSession.objects.create(name='2096/2097')
+        dept = Department.objects.create(name='D', code='DDD')
+        student, _ = create_student(
+            first_name='A', last_name='B', email='ab@example.test', matric_number='D/1',
+            department=dept, level=Level.LEVEL_100, admission_session=session,
+        )
+        result = get_profile_completeness(student)
+        self.assertFalse(result['complete'])
+        self.assertEqual(result['percent'], 0)
+        self.assertIn('Profile picture', result['missing'])
+        self.assertIn("Guardian's name", result['missing'])

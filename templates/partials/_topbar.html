@@ -25,7 +25,7 @@
           <span class="d-none d-sm-inline">{{ user.get_full_name|default:user.username }}</span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
-          <li><a class="dropdown-item" href="{% url 'accounts:profile' %}"><i class="bi bi-person-circle me-2"></i>Profile</a></li>
+          <li><a class="dropdown-item" href="{% if user.role == 'student' %}{% url 'students:my_profile' %}{% else %}{% url 'accounts:profile' %}{% endif %}"><i class="bi bi-person-circle me-2"></i>Profile</a></li>
           <li><a class="dropdown-item" href="{% url 'accounts:password_change' %}"><i class="bi bi-key-fill me-2"></i>Change Password</a></li>
           <li><hr class="dropdown-divider"></li>
           <li>

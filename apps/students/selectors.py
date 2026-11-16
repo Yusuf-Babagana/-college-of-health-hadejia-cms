@@ -28,3 +28,29 @@ def get_student_list(*, search=None, department=None, level=None, status=None, i
         )
 
     return qs
+
+
+def get_profile_completeness(student):
+    """How much of the student's personal profile is filled in, and what
+    is still missing - drives the dashboard prompt. Returns
+    {'percent': int, 'missing': [labels], 'complete': bool}.
+    """
+    guardian = getattr(student, 'guardian', None)
+    checks = [
+        ('Profile picture', bool(student.user.avatar)),
+        ('Date of birth', bool(student.date_of_birth)),
+        ('Gender', bool(student.gender)),
+        ('Home address', bool(student.home_address)),
+        ('State of origin', bool(student.state_of_origin)),
+        ('Phone number', bool(student.user.phone_number)),
+        ("Guardian's name", bool(guardian and guardian.full_name)),
+        ('Guardian relationship', bool(guardian and guardian.relationship)),
+        ("Guardian's phone", bool(guardian and guardian.phone_number)),
+        ("Guardian's address", bool(guardian and guardian.address)),
+    ]
+    missing = [label for label, done in checks if not done]
+    return {
+        'percent': round(100 * (len(checks) - len(missing)) / len(checks)),
+        'missing': missing,
+        'complete': not missing,
+    }

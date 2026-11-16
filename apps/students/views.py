@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
@@ -10,7 +11,15 @@ from apps.core.mixins import PaginatedListMixin, RoleRequiredMixin
 from apps.departments.selectors import get_active_departments
 
 from . import selectors, services
-from .forms import BulkPromotionForm, StudentCreateForm, StudentProfileForm, StudentStatusForm
+from .forms import (
+    BulkPromotionForm,
+    GuardianForm,
+    StudentAccountForm,
+    StudentCreateForm,
+    StudentPersonalForm,
+    StudentProfileForm,
+    StudentStatusForm,
+)
 from .models import Student
 
 
@@ -116,6 +125,65 @@ class StudentStatusUpdateView(StudentManagementRoleMixin, View):
             )
             return redirect('students:student_list')
         return render(request, 'students/student_status_form.html', {'student': student, 'form': form})
+
+
+class MyStudentProfileView(RoleRequiredMixin, View):
+    """The student's own personal profile: contact + profile picture,
+    personal details and guardian, saved together. Academic fields
+    (matric number, department, level, status) stay with the Registrar.
+    """
+    allowed_roles = (Role.STUDENT,)
+    template_name = 'students/my_profile.html'
+
+    def _student(self, request):
+        return getattr(request.user, 'student_profile', None)
+
+    def _forms(self, student, data=None, files=None):
+        return {
+            'account_form': StudentAccountForm(data, files, instance=student.user, prefix='account'),
+            'personal_form': StudentPersonalForm(data, instance=student, prefix='personal'),
+            'guardian_form': GuardianForm(data, instance=getattr(student, 'guardian', None), prefix='guardian'),
+        }
+
+    def _render(self, request, student, forms):
+        from django.shortcuts import render
+
+        return render(request, self.template_name, {
+            **forms, 'student': student, 'completeness': selectors.get_profile_completeness(student),
+        })
+
+    def get(self, request):
+        student = self._student(request)
+        if student is None:
+            messages.error(request, 'No student profile is linked to your account. Contact the Registrar.')
+            return redirect('dashboard:redirect')
+        return self._render(request, student, self._forms(student))
+
+    def post(self, request):
+        student = self._student(request)
+        if student is None:
+            return redirect('dashboard:redirect')
+        forms = self._forms(student, request.POST, request.FILES)
+        if not all(form.is_valid() for form in forms.values()):
+            messages.error(request, 'Please correct the highlighted fields.')
+            return self._render(request, student, forms)
+
+        try:
+            with transaction.atomic():
+                forms['account_form'].save()
+                forms['personal_form'].save()
+                guardian = forms['guardian_form'].save(commit=False)
+                guardian.student = student
+                guardian.save()
+                photo = forms['account_form'].cleaned_data.get('photo')
+                if photo:
+                    services.update_profile_photo(request.user, photo)
+        except ValidationError as exc:
+            forms['account_form'].add_error('photo', exc)
+            return self._render(request, student, forms)
+
+        messages.success(request, 'Your profile has been saved.')
+        return redirect('students:my_profile')
 
 
 class StudentPromoteView(StudentManagementRoleMixin, View):

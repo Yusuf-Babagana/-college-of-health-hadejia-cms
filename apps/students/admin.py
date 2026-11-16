@@ -4,7 +4,14 @@ from django.template.response import TemplateResponse
 from apps.core.admin import SoftDeleteAdminMixin
 
 from . import services
-from .models import Student
+from .models import Guardian, Student
+
+
+class GuardianInline(admin.StackedInline):
+    model = Guardian
+    extra = 0
+    max_num = 1
+    can_delete = False
 
 
 @admin.register(Student)
@@ -22,6 +29,7 @@ class StudentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     ordering = ('matric_number',)
     readonly_fields = ('id', 'created_at', 'updated_at')
     actions = SoftDeleteAdminMixin.actions + ('promote_selected',)
+    inlines = (GuardianInline,)
 
     @admin.action(description='Promote selected students to the next level', permissions=('change',))
     def promote_selected(self, request, queryset):

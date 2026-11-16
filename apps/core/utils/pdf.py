@@ -24,6 +24,19 @@ class PDFRenderError(Exception):
     pass
 
 
+def image_file_data_uri(path):
+    """A local image file (e.g. an uploaded profile picture) as a base64
+    data URI for embedding in a PDF. '' if it can't be read - callers
+    show a placeholder instead of failing the whole document."""
+    try:
+        with open(path, 'rb') as handle:
+            encoded = base64.b64encode(handle.read()).decode('ascii')
+    except (OSError, ValueError, TypeError):
+        return ''
+    mime = 'image/png' if str(path).lower().endswith('.png') else 'image/jpeg'
+    return f'data:{mime};base64,{encoded}'
+
+
 @lru_cache(maxsize=16)
 def static_image_data_uri(static_path):
     """A static image (e.g. 'img/brand/logo1.png') as a base64 data URI, so

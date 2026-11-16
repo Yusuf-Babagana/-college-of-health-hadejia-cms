@@ -41,6 +41,51 @@ class Student(BaseModel):
         help_text='The programme (within the department) this student is enrolled in, if any.',
     )
     level = models.PositiveSmallIntegerField(choices=Level.choices, default=Level.LEVEL_100)
+
+    # --- Personal profile (filled in by the student; every field optional
+    # at the database level because students existed before these did) ---
+    class Gender(models.TextChoices):
+        MALE = 'male', 'Male'
+        FEMALE = 'female', 'Female'
+
+    class MaritalStatus(models.TextChoices):
+        SINGLE = 'single', 'Single'
+        MARRIED = 'married', 'Married'
+        DIVORCED = 'divorced', 'Divorced'
+        WIDOWED = 'widowed', 'Widowed'
+
+    class Religion(models.TextChoices):
+        ISLAM = 'islam', 'Islam'
+        CHRISTIANITY = 'christianity', 'Christianity'
+        OTHER = 'other', 'Other'
+
+    class BloodGroup(models.TextChoices):
+        A_POS = 'A+', 'A+'
+        A_NEG = 'A-', 'A-'
+        B_POS = 'B+', 'B+'
+        B_NEG = 'B-', 'B-'
+        AB_POS = 'AB+', 'AB+'
+        AB_NEG = 'AB-', 'AB-'
+        O_POS = 'O+', 'O+'
+        O_NEG = 'O-', 'O-'
+
+    class Genotype(models.TextChoices):
+        AA = 'AA', 'AA'
+        AS = 'AS', 'AS'
+        SS = 'SS', 'SS'
+        AC = 'AC', 'AC'
+        SC = 'SC', 'SC'
+
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
+    marital_status = models.CharField(max_length=10, choices=MaritalStatus.choices, blank=True)
+    nationality = models.CharField(max_length=60, blank=True)
+    state_of_origin = models.CharField(max_length=100, blank=True)
+    lga_of_origin = models.CharField('LGA of origin', max_length=100, blank=True)
+    religion = models.CharField(max_length=15, choices=Religion.choices, blank=True)
+    home_address = models.TextField(blank=True)
+    blood_group = models.CharField(max_length=3, choices=BloodGroup.choices, blank=True)
+    genotype = models.CharField(max_length=2, choices=Genotype.choices, blank=True)
     admission_session = models.ForeignKey(
         'academics.AcademicSession',
         on_delete=models.PROTECT,

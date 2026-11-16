@@ -1,11 +1,16 @@
+from datetime import date
+
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Column, Layout, Row
 from django import forms
 
 from apps.admissions.models import Programme
 from apps.core.constants import Level
 from apps.core.forms import CrispyFormMixin, DepartmentScopedSelect
-from apps.core.utils.validators import phone_number_validator
+from apps.accounts.models import User
+from apps.core.utils.validators import phone_number_validator, validate_image_file
 
-from .models import Student
+from .models import Guardian, Student
 
 
 class StudentCreateForm(CrispyFormMixin, forms.Form):
@@ -107,3 +112,111 @@ class StudentProfileForm(CrispyFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['programme'].queryset = self.fields['programme'].queryset.filter(is_active=True)
+
+
+# --- Student self-service profile: three sections saved together ---------
+
+
+class _SectionFormMixin:
+    """A form that renders as one card of a larger <form> - no <form> tag,
+    CSRF token or submit button of its own (the page supplies those)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.disable_csrf = True
+
+
+def _two_columns(*names):
+    """Layout rows of two fields each."""
+    rows = [
+        Row(*[Column(name, css_class='col-md-6') for name in names[i:i + 2]])
+        for i in range(0, len(names), 2)
+    ]
+    return Layout(*rows)
+
+
+class StudentAccountForm(_SectionFormMixin, forms.ModelForm):
+    """Contact details and the profile picture. The picture is handled by
+    services.update_profile_photo, not by this ModelForm."""
+
+    photo = forms.ImageField(
+        required=False, label='Profile picture', widget=forms.FileInput(attrs={'accept': 'image/*'}),
+        help_text='A clear, front-facing passport-style photo. JPG, PNG or WebP, up to 2 MB. '
+                  'It is printed on your Course Registration Form.',
+    )
+
+    class Meta:
+        model = User
+        fields = ('email', 'phone_number')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['email'].required = True
+        self.fields['phone_number'].required = True
+        self.helper.layout = Layout('photo', *[
+            Row(Column('email', css_class='col-md-6'), Column('phone_number', css_class='col-md-6')),
+        ])
+
+    def clean_photo(self):
+        photo = self.cleaned_data.get('photo')
+        if photo:
+            validate_image_file(photo)
+        return photo
+
+
+class StudentPersonalForm(_SectionFormMixin, forms.ModelForm):
+    class Meta:
+        model = Student
+        fields = (
+            'date_of_birth', 'gender', 'marital_status', 'religion', 'nationality',
+            'state_of_origin', 'lga_of_origin', 'blood_group', 'genotype', 'home_address',
+        )
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
+            'home_address': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ('date_of_birth', 'gender', 'state_of_origin', 'home_address'):
+            self.fields[name].required = True
+        if not self.instance.nationality:
+            self.initial['nationality'] = 'Nigerian'  # a suggestion, confirmed on save
+        self.helper.layout = Layout(
+            Row(Column('date_of_birth', css_class='col-md-6'), Column('gender', css_class='col-md-6')),
+            Row(Column('marital_status', css_class='col-md-6'), Column('religion', css_class='col-md-6')),
+            Row(Column('nationality', css_class='col-md-6'), Column('state_of_origin', css_class='col-md-6')),
+            Row(Column('lga_of_origin', css_class='col-md-6')),
+            Row(Column('blood_group', css_class='col-md-6'), Column('genotype', css_class='col-md-6')),
+            'home_address',
+        )
+
+    def clean_date_of_birth(self):
+        born = self.cleaned_data.get('date_of_birth')
+        if born:
+            today = date.today()
+            age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+            if born > today:
+                raise forms.ValidationError('Date of birth cannot be in the future.')
+            if not 10 <= age <= 90:
+                raise forms.ValidationError('Please check the date of birth - it gives an age of %d.' % age)
+        return born
+
+
+class GuardianForm(_SectionFormMixin, forms.ModelForm):
+    class Meta:
+        model = Guardian
+        fields = ('full_name', 'relationship', 'phone_number', 'email', 'occupation', 'address')
+        labels = {'full_name': 'Full name', 'phone_number': 'Phone number', 'email': 'Email (optional)'}
+        widgets = {'address': forms.Textarea(attrs={'rows': 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper.layout = Layout(
+            Row(Column('full_name', css_class='col-md-6'), Column('relationship', css_class='col-md-6')),
+            Row(Column('phone_number', css_class='col-md-6'), Column('email', css_class='col-md-6')),
+            'occupation',
+            'address',
+        )
