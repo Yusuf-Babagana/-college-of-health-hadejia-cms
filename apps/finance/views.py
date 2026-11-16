@@ -502,6 +502,48 @@ class InitiateOnlinePaymentView(RoleRequiredMixin, View):
         return redirect(authorization_url)
 
 
+class PaymentReceiptView(RoleRequiredMixin, View):
+    """The student's printable payment receipt (PDF) for one successful
+    payment - opens in the browser, ready to print or save. Only the
+    student's own successful payments have a receipt."""
+    allowed_roles = (Role.STUDENT,)
+
+    def get(self, request, pk):
+        from django.conf import settings
+
+        from apps.core.utils.pdf import render_to_pdf_response, static_image_data_uri
+        from apps.core.utils.formatters import amount_in_words
+
+        student_profile = getattr(request.user, 'student_profile', None)
+        payment = selectors.get_receipt_payment_for_student(student_profile, pk) if student_profile else None
+        if payment is None:
+            messages.error(request, 'Receipt not found - a receipt is only issued for a successful payment of yours.')
+            return redirect('finance:my_invoices')
+
+        totals = selectors.get_receipt_totals(payment)
+        context = {
+            'payment': payment,
+            'invoice': payment.invoice,
+            'student': payment.invoice.student,
+            'fee_structure': payment.invoice.fee_structure,
+            'receipt_number': payment.receipt_number,
+            'logo': static_image_data_uri('img/brand/logo1.png'),
+            'college_name': settings.COLLEGE_NAME,
+            'amount_words': amount_in_words(payment.amount),
+            'paid_to_date': totals['paid_to_date'],
+            'balance': totals['balance'],
+            'is_fully_paid': totals['balance'] <= 0,
+            'received_by': (
+                payment.verified_by.get_full_name() or payment.verified_by.username
+                if payment.verified_by_id else 'Paystack (online payment)'
+            ),
+        }
+        return render_to_pdf_response(
+            'finance/payment_receipt_pdf.html', context,
+            filename=f'{payment.receipt_number}.pdf', inline=request.GET.get('download') != '1',
+        )
+
+
 class PaymentCallbackView(LoginRequiredMixin, View):
     """Paystack redirects the payer's browser here after checkout."""
 
@@ -518,7 +560,11 @@ class PaymentCallbackView(LoginRequiredMixin, View):
             return redirect('finance:my_invoices')
 
         if payment.status == Payment.Status.SUCCESSFUL:
-            messages.success(request, f'Payment successful! Invoice status: {payment.invoice.get_status_display()}.')
+            messages.success(
+                request,
+                f'Payment successful! Invoice status: {payment.invoice.get_status_display()}. '
+                'Your receipt is ready - use the Receipt button next to the invoice.',
+            )
         else:
             messages.error(request, 'Payment was not successful. Please try again.')
         return redirect('finance:my_invoices')

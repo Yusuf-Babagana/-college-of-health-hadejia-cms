@@ -1,0 +1,181 @@
+{% load format_tags %}<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Receipt {{ receipt_number }}</title>
+  <style>
+    @page { size: a4 portrait; margin: 1.4cm 1.6cm 1.4cm 1.6cm; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 9.5pt; color: #1f2937; }
+    table { border-collapse: collapse; }
+    td { vertical-align: top; }
+
+    .brand-name { font-size: 15pt; font-weight: bold; color: #1e3a8a; }
+    .brand-sub { font-size: 9pt; color: #64748b; }
+    .rule { border-top: 3px solid #2563eb; }
+    .rule-thin { border-top: 1px solid #cbd5e1; }
+
+    .titlebar { background-color: #1e3a8a; color: #ffffff; }
+    .titlebar td { padding: 9px 12px; }
+    .title { font-size: 13pt; font-weight: bold; }
+    .title-meta { font-size: 8.5pt; text-align: right; }
+
+    .box { border: 1px solid #cbd5e1; }
+    .box-head { background-color: #eff6ff; color: #1d4ed8; font-weight: bold; font-size: 8pt; padding: 5px 10px; }
+    .box-body { padding: 8px 10px; }
+    .k { color: #64748b; font-size: 8.5pt; padding: 2px 0; }
+    .v { font-weight: bold; padding: 2px 0; }
+
+    .items th { background-color: #2563eb; color: #ffffff; font-size: 8.5pt; text-align: left; padding: 7px 9px; }
+    .items td { border-bottom: 1px solid #e2e8f0; padding: 9px; }
+    .num { text-align: right; }
+
+    .totals td { padding: 5px 9px; }
+    .totals .label { color: #475569; text-align: right; }
+    .totals .value { text-align: right; font-weight: bold; }
+    .grand td { background-color: #ecfdf5; border-top: 2px solid #059669; font-size: 10.5pt; color: #047857; padding: 8px 9px; font-weight: bold; }
+
+    .words { background-color: #f1f5f9; border-left: 4px solid #2563eb; padding: 8px 12px; }
+    .words-label { color: #64748b; font-size: 8pt; }
+    .words-text { font-weight: bold; color: #1e3a8a; }
+
+    .stamp-paid { border: 3px solid #059669; color: #059669; font-weight: bold; font-size: 16pt; text-align: center; padding: 6px 0; }
+    .stamp-part { border: 3px solid #d97706; color: #d97706; font-weight: bold; font-size: 13pt; text-align: center; padding: 8px 0; }
+    .stamp-sub { font-size: 8pt; text-align: center; color: #64748b; padding-top: 3px; }
+
+    .sig { border-top: 1px solid #334155; padding-top: 3px; font-size: 8.5pt; color: #475569; }
+    .foot { font-size: 8pt; color: #64748b; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Letterhead -->
+  <table width="100%">
+    <tr>
+      <td width="86">{% if logo %}<img src="{{ logo }}" width="76" height="76">{% endif %}</td>
+      <td valign="middle">
+        <div class="brand-name">{{ college_name }}</div>
+        <div class="brand-sub">Jigawa State &nbsp;|&nbsp; Office of the Bursar</div>
+      </td>
+    </tr>
+  </table>
+  <div class="rule" style="margin-top: 6px; margin-bottom: 10px;"></div>
+
+  <!-- Title bar -->
+  <table width="100%" class="titlebar">
+    <tr>
+      <td><span class="title">OFFICIAL PAYMENT RECEIPT</span></td>
+      <td class="title-meta">
+        Receipt No: <b>{{ receipt_number }}</b><br/>
+        Date: <b>{{ payment.paid_at|default:payment.created_at|date:"j F Y, g:i A" }}</b>
+      </td>
+    </tr>
+  </table>
+  <br/>
+
+  <!-- Student + payment details -->
+  <table width="100%">
+    <tr>
+      <td width="49%">
+        <table width="100%" class="box">
+          <tr><td class="box-head">RECEIVED FROM</td></tr>
+          <tr><td class="box-body">
+            <table width="100%">
+              <tr><td class="k" width="38%">Name</td><td class="v">{{ student.user.get_full_name|upper }}</td></tr>
+              <tr><td class="k">Matric No.</td><td class="v">{{ student.matric_number }}</td></tr>
+              <tr><td class="k">Department</td><td class="v">{{ student.department.name }}</td></tr>
+              {% if student.programme %}<tr><td class="k">Programme</td><td class="v">{{ student.programme.name }}</td></tr>{% endif %}
+              <tr><td class="k">Level</td><td class="v">{{ student.get_level_display }}</td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </td>
+      <td width="2%">&nbsp;</td>
+      <td width="49%">
+        <table width="100%" class="box">
+          <tr><td class="box-head">PAYMENT DETAILS</td></tr>
+          <tr><td class="box-body">
+            <table width="100%">
+              <tr><td class="k" width="38%">Method</td><td class="v">{{ payment.get_method_display }}</td></tr>
+              <tr><td class="k">Reference</td><td class="v">{{ payment.reference }}</td></tr>
+              <tr><td class="k">Invoice No.</td><td class="v">{{ invoice.invoice_number|default:"-" }}</td></tr>
+              <tr><td class="k">Session</td><td class="v">{{ fee_structure.session.name }}{% if fee_structure.semester %} - {{ fee_structure.semester.get_name_display }}{% endif %}</td></tr>
+              <tr><td class="k">Received by</td><td class="v">{{ received_by }}</td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+  <br/>
+
+  <!-- What was paid for -->
+  <table width="100%" class="items">
+    <tr>
+      <th>DESCRIPTION</th>
+      <th class="num" width="120">INVOICE AMOUNT</th>
+      <th class="num" width="120">THIS PAYMENT</th>
+    </tr>
+    <tr>
+      <td>
+        <b>{{ fee_structure.fee_type.name }}</b>
+        {% if fee_structure.description %}<br/><span style="color:#64748b;">{{ fee_structure.description }}</span>{% endif %}
+      </td>
+      <td class="num">NGN {{ invoice.amount_due|floatformat:"2g" }}</td>
+      <td class="num"><b>NGN {{ payment.amount|floatformat:"2g" }}</b></td>
+    </tr>
+  </table>
+
+  <table width="100%">
+    <tr>
+      <td width="40%">
+        <br/>
+        {% if is_fully_paid %}
+          <div class="stamp-paid">PAID IN FULL</div>
+          <div class="stamp-sub">No balance outstanding on this invoice</div>
+        {% else %}
+          <div class="stamp-part">PART PAYMENT</div>
+          <div class="stamp-sub">Balance of NGN {{ balance|floatformat:"2g" }} still outstanding</div>
+        {% endif %}
+      </td>
+      <td width="4%">&nbsp;</td>
+      <td width="56%">
+        <br/>
+        <table width="100%" class="totals">
+          <tr><td class="label">Invoice total</td><td class="value">NGN {{ invoice.amount_due|floatformat:"2g" }}</td></tr>
+          <tr><td class="label">Paid to date</td><td class="value">NGN {{ paid_to_date|floatformat:"2g" }}</td></tr>
+          <tr><td class="label">Balance</td><td class="value">NGN {{ balance|floatformat:"2g" }}</td></tr>
+        </table>
+        <table width="100%" class="totals grand">
+          <tr><td class="label" style="color:#047857; text-align:left;" width="50%">AMOUNT RECEIVED</td><td class="value">NGN {{ payment.amount|floatformat:"2g" }}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+  <br/>
+
+  <table width="100%" class="words">
+    <tr><td>
+      <span class="words-label">AMOUNT IN WORDS</span><br/>
+      <span class="words-text">{{ amount_words }}</span>
+    </td></tr>
+  </table>
+
+  <br/><br/>
+  <table width="100%">
+    <tr>
+      <td width="40%"><div class="sig">Bursar / Authorised Signatory</div></td>
+      <td width="20%">&nbsp;</td>
+      <td width="40%"><div class="sig">Student's Signature</div></td>
+    </tr>
+  </table>
+
+  <br/>
+  <div class="rule-thin" style="margin-bottom: 6px;"></div>
+  <div class="foot">
+    This is a computer-generated receipt and is valid without a signature when it carries the receipt number above.<br/>
+    Please keep it as proof of payment.<br/>
+    Generated {% now "j F Y, g:i A" %} &nbsp;|&nbsp; {{ college_name }}
+  </div>
+
+</body>
+</html>

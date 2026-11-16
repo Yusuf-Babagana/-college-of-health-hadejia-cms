@@ -3,7 +3,7 @@ Read-only queries for fee structures and invoices.
 """
 from django.db import models
 
-from .models import FeeStructure, FeeType, Invoice
+from .models import FeeStructure, FeeType, Invoice, Payment
 
 
 def get_fee_type_list(*, include_archived=False):
@@ -185,7 +185,47 @@ def get_invoices_for_student(student):
     """
     return Invoice.objects.filter(student=student).filter(
         models.Q(fee_structure__is_published=True) | models.Q(amount_paid__gt=0),
-    ).select_related('fee_structure', 'fee_structure__session', 'fee_structure__fee_type')
+    ).select_related('fee_structure', 'fee_structure__session', 'fee_structure__fee_type').prefetch_related(
+        # each invoice's receipts, oldest first: invoice.receipts
+        models.Prefetch(
+            'payments',
+            queryset=Payment.objects.filter(status=Payment.Status.SUCCESSFUL).order_by('paid_at', 'created_at', 'id'),
+            to_attr='receipts',
+        ),
+    )
+
+
+def get_receipt_payment_for_student(student, payment_id):
+    """A successful payment belonging to this student - the only thing a
+    receipt is ever issued for. Anyone else's payment, or one that is
+    pending/failed, is simply not found."""
+    return Payment.objects.filter(
+        pk=payment_id, invoice__student=student, status=Payment.Status.SUCCESSFUL,
+    ).select_related(
+        'verified_by', 'invoice', 'invoice__student', 'invoice__student__user',
+        'invoice__student__department', 'invoice__student__programme',
+        'invoice__fee_structure', 'invoice__fee_structure__fee_type',
+        'invoice__fee_structure__session', 'invoice__fee_structure__semester',
+    ).first()
+
+
+def get_receipt_totals(payment):
+    """What the invoice looked like right after this payment: paid to date
+    (this payment and earlier successful ones) and the balance left - so
+    an early part-payment's receipt never shows a later payment."""
+    # One fixed order for the invoice's successful payments (time, then
+    # creation time, then id), so two payments stamped within the same
+    # clock tick can never both claim to be the last - or the first.
+    ordered = sorted(
+        payment.invoice.payments.filter(status=Payment.Status.SUCCESSFUL),
+        key=lambda p: (p.paid_at or p.created_at, p.created_at, str(p.pk)),
+    )
+    paid_to_date = 0
+    for earlier_or_this in ordered:
+        paid_to_date += earlier_or_this.amount
+        if earlier_or_this.pk == payment.pk:
+            break
+    return {'paid_to_date': paid_to_date, 'balance': payment.invoice.amount_due - paid_to_date}
 
 
 def get_programme_invoice_report(*, session=None):
