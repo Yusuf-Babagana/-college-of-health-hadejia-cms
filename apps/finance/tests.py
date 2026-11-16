@@ -431,3 +431,114 @@ class IsolatedInvoicePaymentTests(ProgramInvoiceTestBase):
         second = services.generate_invoice(student=self.a2, fee_structure=self.fee)
         self.assertNotEqual(self.invoice.invoice_number, second.invoice_number)
         self.assertTrue(self.invoice.invoice_number.startswith('INV-'))
+
+
+class PaymentReceiptTests(ProgramInvoiceTestBase):
+    """A student can print a receipt for each successful payment of theirs."""
+
+    def setUp(self):
+        from django.utils import timezone
+        self.fee = self.make_fee(amount=Decimal('52500.50'))
+        self.invoice = services.generate_invoice(student=self.a1, fee_structure=self.fee)
+        self.part = services.record_offline_payment(
+            invoice=self.invoice, amount=Decimal('20000.00'), reference='TELLER-1', notes='', recorded_by=self.bursar,
+        )
+        self.rest = Payment.objects.create(
+            invoice=self.invoice, amount=Decimal('32500.50'), method=Payment.Method.ONLINE,
+            reference='PSK-REST1', status=Payment.Status.SUCCESSFUL, paid_at=timezone.now(),
+        )
+        services._apply_successful_payment(self.invoice, self.rest.amount)
+        # distinct, ordered times (a coarse clock could otherwise stamp both identically)
+        Payment.objects.filter(pk=self.part.pk).update(paid_at=timezone.now() - timezone.timedelta(hours=1))
+        self.part.refresh_from_db()
+
+    def pdf_text(self, response):
+        from io import BytesIO
+        from pypdf import PdfReader
+        return '\n'.join(page.extract_text() for page in PdfReader(BytesIO(response.content)).pages)
+
+    def get(self, student, payment):
+        return self.login(student).get(reverse('finance:payment_receipt', args=[payment.pk]))
+
+    def test_student_gets_a_pdf_receipt_with_the_logo_and_correct_figures(self):
+        response = self.get(self.a1, self.rest)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF'))
+        self.assertIn(self.rest.receipt_number, response['Content-Disposition'])
+        self.assertIn(b'/Image', response.content)  # the college crest is embedded
+        text = self.pdf_text(response)
+        for expected in (self.rest.receipt_number, self.a1.matric_number, 'PSK-REST1', 'PAID IN FULL',
+                         '32,500.50', '52,500.50', 'Thirty-Two Thousand Five Hundred Naira, Fifty Kobo Only'):
+            self.assertIn(expected, text)
+
+    def test_an_early_part_payment_receipt_shows_the_state_at_that_time(self):
+        text = self.pdf_text(self.get(self.a1, self.part))
+        self.assertIn('PART PAYMENT', text)
+        self.assertIn('20,000.00', text)
+        self.assertIn('32,500.50', text)  # still outstanding after the first payment
+        self.assertNotIn('PAID IN FULL', text)
+
+    def test_download_flag_forces_an_attachment(self):
+        response = self.login(self.a1).get(reverse('finance:payment_receipt', args=[self.rest.pk]), {'download': '1'})
+        self.assertTrue(response['Content-Disposition'].startswith('attachment'))
+
+    def test_another_students_receipt_is_not_available(self):
+        response = self.get(self.a2, self.rest)
+        self.assertEqual(response.status_code, 302)
+        self.assertNotEqual(response['Content-Type'], 'application/pdf')
+
+    def test_pending_or_failed_payments_have_no_receipt(self):
+        for status in (Payment.Status.PENDING, Payment.Status.FAILED):
+            payment = Payment.objects.create(
+                invoice=self.invoice, amount=Decimal('1.00'), method=Payment.Method.ONLINE,
+                reference=f'PSK-{status}', status=status,
+            )
+            self.assertEqual(self.get(self.a1, payment).status_code, 302)
+
+    def test_only_students_can_use_the_student_receipt_url(self):
+        client = Client()
+        client.force_login(self.bursar)
+        response = client.get(reverse('finance:payment_receipt', args=[self.rest.pk]))
+        self.assertNotEqual(response.get('Content-Type'), 'application/pdf')
+
+    def test_my_invoices_shows_a_receipt_button_per_successful_payment_only(self):
+        pending = Payment.objects.create(
+            invoice=self.invoice, amount=Decimal('1.00'), method=Payment.Method.ONLINE,
+            reference='PSK-PEND', status=Payment.Status.PENDING,
+        )
+        response = self.login(self.a1).get(reverse('finance:my_invoices'))
+        self.assertContains(response, reverse('finance:payment_receipt', args=[self.part.pk]))
+        self.assertContains(response, reverse('finance:payment_receipt', args=[self.rest.pk]))
+        self.assertNotContains(response, reverse('finance:payment_receipt', args=[pending.pk]))
+
+    def test_receipt_number_is_stable_and_well_formed(self):
+        import re
+        self.assertRegex(self.rest.receipt_number, r'^RCT-\d{6}-[0-9A-F]{8}$')
+        self.assertEqual(self.rest.receipt_number, Payment.objects.get(pk=self.rest.pk).receipt_number)
+        self.assertNotEqual(self.rest.receipt_number, self.part.receipt_number)
+
+    def test_amount_in_words(self):
+        from apps.core.utils.formatters import amount_in_words
+        cases = {
+            '0': 'Zero Naira Only',
+            '1': 'One Naira Only',
+            '50000': 'Fifty Thousand Naira Only',
+            '1050': 'One Thousand and Fifty Naira Only',
+            '115.5': 'One Hundred and Fifteen Naira, Fifty Kobo Only',
+            '0.25': 'Twenty-Five Kobo Only',
+            '1250000': 'One Million Two Hundred and Fifty Thousand Naira Only',
+        }
+        for amount, words in cases.items():
+            self.assertEqual(amount_in_words(Decimal(amount)), words, amount)
+
+    def test_payments_with_identical_timestamps_still_total_correctly(self):
+        # Two payments in the same clock tick: one fixed order, so exactly one is the last.
+        stamp = self.rest.paid_at
+        Payment.objects.filter(pk__in=[self.part.pk, self.rest.pk]).update(paid_at=stamp, created_at=stamp)
+        totals = [selectors.get_receipt_totals(Payment.objects.get(pk=p.pk)) for p in (self.part, self.rest)]
+        first, last = sorted(totals, key=lambda t: t['paid_to_date'])
+        self.assertIn(first['paid_to_date'], (Decimal('20000.00'), Decimal('32500.50')))  # just its own amount
+        self.assertEqual(first['balance'], Decimal('52500.50') - first['paid_to_date'])
+        self.assertEqual(max(t['paid_to_date'] for t in totals), Decimal('52500.50'))
+        self.assertEqual(sum(1 for t in totals if t['balance'] == 0), 1)

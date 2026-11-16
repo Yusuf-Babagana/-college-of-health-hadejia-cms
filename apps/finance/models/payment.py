@@ -44,5 +44,12 @@ class Payment(BaseModel):
         verbose_name_plural = 'Payments'
         ordering = ['-created_at']
 
+    @property
+    def receipt_number(self):
+        """Stable, human-readable receipt reference derived from the
+        payment itself (no extra column): RCT-YYYYMM-XXXXXXXX."""
+        when = self.paid_at or self.created_at
+        return f'RCT-{when:%Y%m}-{self.pk.hex[:8].upper()}'
+
     def __str__(self):
         return f'{self.reference} - {self.invoice.student.matric_number} - {self.amount}'

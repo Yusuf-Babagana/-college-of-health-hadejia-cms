@@ -37,6 +37,7 @@ urlpatterns = [
 
     path('my-invoices/', views.MyInvoicesView.as_view(), name='my_invoices'),
     path('my-invoices/<uuid:pk>/pay/', views.InitiateOnlinePaymentView.as_view(), name='initiate_payment'),
+    path('my-invoices/receipts/<uuid:pk>/', views.PaymentReceiptView.as_view(), name='payment_receipt'),
     path('payments/callback/', views.PaymentCallbackView.as_view(), name='payment_callback'),
     path('payments/webhook/', views.PaystackWebhookView.as_view(), name='payment_webhook'),
 

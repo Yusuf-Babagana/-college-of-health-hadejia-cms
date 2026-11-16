@@ -7,9 +7,12 @@ Templates are plain Django templates styled with inline-friendly CSS
 Bootstrap, so PDF templates should stay simple rather than reusing
 static/css/theme.css).
 """
+import base64
 import logging
+from functools import lru_cache
 from io import BytesIO
 
+from django.contrib.staticfiles import finders
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
@@ -19,6 +22,21 @@ logger = logging.getLogger('apps')
 
 class PDFRenderError(Exception):
     pass
+
+
+@lru_cache(maxsize=16)
+def static_image_data_uri(static_path):
+    """A static image (e.g. 'img/brand/logo1.png') as a base64 data URI, so
+    a PDF template can embed it without caring where static files live on
+    the machine (dev, collectstatic'd, PythonAnywhere). '' if not found."""
+    path = finders.find(static_path)
+    if not path:
+        logger.warning('PDF image %s not found', static_path)
+        return ''
+    with open(path, 'rb') as handle:
+        encoded = base64.b64encode(handle.read()).decode('ascii')
+    mime = 'image/png' if static_path.lower().endswith('.png') else 'image/jpeg'
+    return f'data:{mime};base64,{encoded}'
 
 
 def render_to_pdf_bytes(template_name, context=None):
