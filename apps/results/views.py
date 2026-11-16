@@ -225,7 +225,8 @@ class HODReviewRoleMixin(RoleRequiredMixin):
         return lecturer_profile.department if lecturer_profile else None
 
     def is_overseer(self):
-        return self.request.user.role == Role.SUPER_ADMIN
+        # Super Admins and Django superusers (the admin account) see every department.
+        return self.request.user.is_super_admin
 
     def get_grade_or_404(self, pk):
         department = self.get_department()

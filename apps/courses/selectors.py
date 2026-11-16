@@ -24,6 +24,28 @@ def get_current_offering_for_course(course):
     return CourseOffering.objects.filter(course=course, semester=semester).first()
 
 
+def get_running_semesters_for_course(course):
+    """Every semester a course's students could currently be in. A course
+    tied to one programme follows that programme's semester; a course
+    with no programme of its own (General Studies, or a department-wide
+    course) is taken by students of several programmes, each running their
+    own semester - so it spans all of them. Regardless of semester name.
+    """
+    from apps.academics.selectors import get_current_semesters_for_level, get_semester_for_level
+
+    if course.programme_id:
+        semester = get_semester_for_level(course.level, course.programme_id)
+        return [semester] if semester else []
+    return get_current_semesters_for_level(course.level)
+
+
+def get_offering_semesters_for_course(course):
+    """The semesters this course should be offered in right now: the
+    running ones (see get_running_semesters_for_course) whose semester
+    name (First/Second) is the one the course is taught in."""
+    return [s for s in get_running_semesters_for_course(course) if s.name == course.semester_name]
+
+
 def get_course_list(*, search=None, department=None, level=None, include_archived=False):
     manager = Course.all_objects if include_archived else Course.objects
     qs = manager.select_related('department')
@@ -389,10 +411,12 @@ def get_current_offerings_for_department(department):
     """
     from apps.academics.selectors import get_level_semester_states
 
-    semester_id_by_level = {
-        state.level: state.semester_id for state in get_level_semester_states()
-    }
-    if not semester_id_by_level:
+    # A level can be running several semesters at once (one per programme),
+    # so look in all of them - not just whichever came last.
+    semester_ids_by_level = {}
+    for state in get_level_semester_states():
+        semester_ids_by_level.setdefault(state.level, set()).add(state.semester_id)
+    if not semester_ids_by_level:
         return {}
 
     course_ids_by_level = {}
@@ -400,12 +424,12 @@ def get_current_offerings_for_department(department):
         course_ids_by_level.setdefault(course['level'], []).append(course['id'])
 
     offerings_by_course_id = {}
-    for level, semester_id in semester_id_by_level.items():
+    for level, semester_ids in semester_ids_by_level.items():
         course_ids = course_ids_by_level.get(level)
         if not course_ids:
             continue
         offerings = CourseOffering.objects.filter(
-            course_id__in=course_ids, semester_id=semester_id,
+            course_id__in=course_ids, semester_id__in=semester_ids,
         ).select_related('lecturer', 'lecturer__user')
         for offering in offerings:
             offerings_by_course_id[offering.course_id] = offering

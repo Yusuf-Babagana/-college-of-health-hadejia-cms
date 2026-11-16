@@ -15,7 +15,9 @@ class DashboardRedirectView(LoginRequiredMixin, View):
 
     def get(self, request):
         if request.user.is_superuser and not request.user.role:
-            return redirect(reverse('admin:index'))
+            # The admin account has every Super Admin screen; the sidebar
+            # links on to the Django admin ("System Admin").
+            return redirect(reverse('dashboard:super_admin'))
 
         url_name = ROLE_DASHBOARD_URL_NAMES.get(request.user.role)
         if not url_name:

@@ -72,4 +72,6 @@ class User(AbstractUser):
 
     @property
     def is_super_admin(self):
-        return self.role == Role.SUPER_ADMIN
+        # A Django superuser is a super admin even if no role was ever set
+        # on the account (e.g. one made with createsuperuser).
+        return self.role == Role.SUPER_ADMIN or self.is_superuser

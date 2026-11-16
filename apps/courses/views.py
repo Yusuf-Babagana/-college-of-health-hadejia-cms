@@ -98,7 +98,8 @@ class HODCourseOfferingMixin(RoleRequiredMixin):
         return lecturer_profile.department if lecturer_profile else None
 
     def is_overseer(self):
-        return self.request.user.role == Role.SUPER_ADMIN
+        # Super Admins and Django superusers (the admin account) see every department.
+        return self.request.user.is_super_admin
 
 
 class CourseAllocationView(HODCourseOfferingMixin, TemplateView):
@@ -210,8 +211,16 @@ class CourseOfferingCreateView(HODCourseOfferingMixin, CreateView):
         return context
 
     def form_valid(self, form):
-        messages.success(self.request, f'"{form.instance.course}" assigned for {form.instance.semester}.')
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        mirrored = services.mirror_offering_to_other_semesters(self.object)
+        message = f'"{self.object.course}" assigned for {self.object.semester}.'
+        if mirrored:
+            message += (
+                f' It was also offered in {len(mirrored)} other running semester(s) so students of every '
+                'programme can see it: ' + ', '.join(str(o.semester) for o in mirrored) + '.'
+            )
+        messages.success(self.request, message)
+        return response
 
 
 class CourseOfferingUpdateView(HODCourseOfferingMixin, UpdateView):
