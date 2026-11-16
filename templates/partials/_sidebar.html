@@ -15,7 +15,7 @@
     </a>
 
     <div class="nav-section-title">Account</div>
-    <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" href="{% url 'accounts:profile' %}">
+    <a class="nav-link {% if request.resolver_match.url_name == 'profile' or request.resolver_match.url_name == 'my_profile' %}active{% endif %}" href="{% if user.role == 'student' %}{% url 'students:my_profile' %}{% else %}{% url 'accounts:profile' %}{% endif %}">
       <i class="bi bi-person-circle me-2"></i> My Profile
     </a>
     <a class="nav-link {% if request.resolver_match.url_name == 'password_change' %}active{% endif %}" href="{% url 'accounts:password_change' %}">

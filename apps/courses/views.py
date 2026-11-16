@@ -7,7 +7,7 @@ from django.views.generic import CreateView, ListView, TemplateView, UpdateView,
 
 from apps.core.constants import Role
 from apps.core.mixins import PaginatedListMixin, RoleRequiredMixin
-from apps.core.utils.pdf import render_to_pdf_response
+from apps.core.utils.pdf import image_file_data_uri, render_to_pdf_response, static_image_data_uri
 from apps.departments.selectors import get_active_departments
 
 from . import selectors, services
@@ -568,6 +568,18 @@ class DropCourseView(StudentCourseRoleMixin, View):
 
 
 class RegistrationSlipPDFView(StudentCourseRoleMixin, View):
+    @staticmethod
+    def _profile_photo_uri(student_profile):
+        """The student's profile picture for the form, or '' (the form then
+        shows an "affix photograph" box) if they haven't uploaded one."""
+        avatar = student_profile.user.avatar
+        if not avatar:
+            return ''
+        try:
+            return image_file_data_uri(avatar.path)
+        except (ValueError, NotImplementedError):
+            return ''
+
     def get(self, request):
         student_profile = getattr(request.user, 'student_profile', None)
         if not student_profile:
@@ -595,6 +607,8 @@ class RegistrationSlipPDFView(StudentCourseRoleMixin, View):
                 'registrations': registrations,
                 'total_units': total_units,
                 'college_name': 'College of Health Sciences and Technology, Hadejia',
+                'logo': static_image_data_uri('img/brand/logo1.png'),
+                'photo': self._profile_photo_uri(student_profile),
             },
             filename=f'registration-slip-{student_profile.matric_number}.pdf'.replace('/', '-'),
         )

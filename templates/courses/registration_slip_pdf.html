@@ -2,70 +2,131 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <title>Course Registration Form - {{ student.matric_number }}</title>
   <style>
-    body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #1f2937; }
-    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #059669; padding-bottom: 12px; }
-    .header h1 { font-size: 14pt; color: #047857; margin: 0 0 4px; }
-    .header h2 { font-size: 12pt; margin: 0; color: #333; }
-    .meta { margin-bottom: 16px; }
-    .meta td { padding: 3px 8px 3px 0; font-size: 10pt; }
-    .meta .label { color: #555; width: 140px; }
-    table.courses { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    table.courses th, table.courses td { border: 1px solid #ccc; padding: 6px 8px; font-size: 10pt; text-align: left; }
-    table.courses th { background-color: #ecfdf5; color: #047857; }
-    .total-row td { font-weight: bold; background-color: #f9fafb; }
-    .footer { margin-top: 40px; font-size: 9pt; color: #666; }
-    .signature { margin-top: 50px; }
-    .signature-line { border-top: 1px solid #333; width: 220px; margin-top: 40px; padding-top: 4px; font-size: 9pt; }
+    @page { size: a4 portrait; margin: 1.4cm 1.6cm 1.4cm 1.6cm; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #1f2937; }
+    table { border-collapse: collapse; }
+    td { vertical-align: top; }
+
+    .brand-name { font-size: 15pt; font-weight: bold; color: #1e3a8a; }
+    .brand-sub { font-size: 9pt; color: #64748b; }
+    .rule { border-top: 3px solid #2563eb; }
+
+    .titlebar { background-color: #1e3a8a; color: #ffffff; }
+    .titlebar td { padding: 6px 12px; }
+    .title { font-size: 13pt; font-weight: bold; }
+    .title-meta { font-size: 8.5pt; text-align: right; }
+
+    .box { border: 1px solid #cbd5e1; }
+    .box-head { background-color: #eff6ff; color: #1d4ed8; font-weight: bold; font-size: 8pt; padding: 3px 10px; }
+    .box-body { padding: 4px 10px; }
+    .k { color: #64748b; font-size: 8pt; padding: 1.5px 0; }
+    .v { font-weight: bold; font-size: 9pt; padding: 1.5px 0; }
+
+    .photo-frame { border: 2px solid #1e3a8a; width: 112px; height: 138px; text-align: center; }
+    .photo-empty { color: #94a3b8; font-size: 8pt; padding-top: 52px; }
+
+    /* compact on purpose: a full course load must fit on one printed page */
+    table.courses { width: 100%; margin-top: 2px; }
+    table.courses th { background-color: #2563eb; color: #ffffff; font-size: 7.5pt; text-align: left; padding: 4px 7px; }
+    table.courses td { border-bottom: 1px solid #e2e8f0; padding: 2.5px 7px; font-size: 8pt; }
+    .num { text-align: right; }
+    .total-row td { font-weight: bold; background-color: #eff6ff; color: #1e3a8a; border-top: 2px solid #2563eb; padding: 4px 7px; }
+
+    .sig { border-top: 1px solid #334155; padding-top: 3px; font-size: 8.5pt; color: #475569; }
+    .foot { font-size: 8pt; color: #64748b; text-align: center; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>{{ college_name }}</h1>
-    <h2>Course Registration Slip</h2>
-  </div>
 
-  <table class="meta">
-    <tr><td class="label">Matric Number:</td><td>{{ student.matric_number }}</td></tr>
-    <tr><td class="label">Name:</td><td>{{ student.user.get_full_name }}</td></tr>
-    <tr><td class="label">Department:</td><td>{{ student.department.name }}</td></tr>
-    <tr><td class="label">Level:</td><td>{{ student.get_level_display }}</td></tr>
-    <tr><td class="label">Semester:</td><td>{% if semester %}{{ semester }}{% else %}No active semester{% endif %}</td></tr>
+  <!-- Letterhead -->
+  <table width="100%">
+    <tr>
+      <td width="86">{% if logo %}<img src="{{ logo }}" width="76" height="76">{% endif %}</td>
+      <td valign="middle">
+        <div class="brand-name">{{ college_name }}</div>
+        <div class="brand-sub">Jigawa State &nbsp;|&nbsp; Office of the Registrar</div>
+      </td>
+    </tr>
   </table>
+  <div class="rule" style="margin-top: 6px; margin-bottom: 10px;"></div>
 
+  <table width="100%" class="titlebar">
+    <tr>
+      <td><span class="title">COURSE REGISTRATION FORM</span></td>
+      <td class="title-meta">
+        {% if semester %}<b>{{ semester }}</b><br/>{% endif %}
+        Printed: <b>{% now "j F Y" %}</b>
+      </td>
+    </tr>
+  </table>
+  <div style="font-size: 9pt; line-height: 9pt;">&nbsp;</div>
+
+  <!-- Student bio-data with passport photograph -->
+  <table width="100%">
+    <tr>
+      <td>
+        <table width="100%" class="box">
+          <tr><td class="box-head">STUDENT DETAILS</td></tr>
+          <tr><td class="box-body">
+            <table width="100%">
+              <tr><td class="k" width="24%">Name</td><td class="v" width="26%">{{ student.user.get_full_name|upper }}</td>
+                  <td class="k" width="22%">Matric No.</td><td class="v">{{ student.matric_number }}</td></tr>
+              <tr><td class="k">Department</td><td class="v">{{ student.department.name }}</td>
+                  <td class="k">Programme</td><td class="v">{{ student.programme.name|default:"-" }}</td></tr>
+              <tr><td class="k">Level</td><td class="v">{{ student.get_level_display }}</td>
+                  <td class="k">Semester</td><td class="v">{% if semester %}{{ semester.get_name_display }}, {{ semester.session.name }}{% else %}-{% endif %}</td></tr>
+              <tr><td class="k">Gender</td><td class="v">{{ student.get_gender_display|default:"-" }}</td>
+                  <td class="k">Date of birth</td><td class="v">{% if student.date_of_birth %}{{ student.date_of_birth|date:"j F Y" }}{% else %}-{% endif %}</td></tr>
+              <tr><td class="k">State of origin</td><td class="v">{{ student.state_of_origin|default:"-" }}</td>
+                  <td class="k">Phone</td><td class="v">{{ student.user.phone_number|default:"-" }}</td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </td>
+      <td width="14">&nbsp;</td>
+      <td width="116">
+        <table class="photo-frame" width="112" height="138">
+          <tr><td align="center" valign="middle">
+            {% if photo %}<img src="{{ photo }}" width="108" height="134">{% else %}<div class="photo-empty">Affix passport<br/>photograph</div>{% endif %}
+          </td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+  <div style="font-size: 9pt; line-height: 9pt;">&nbsp;</div>
+
+  <!-- Registered courses -->
   <table class="courses">
-    <thead>
-      <tr>
-        <th>Course Code</th>
-        <th>Course Title</th>
-        <th>Credit Units</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for reg in registrations %}
-      <tr>
-        <td>{{ reg.course_offering.course.code }}</td>
-        <td>{{ reg.course_offering.course.title }}</td>
-        <td>{{ reg.course_offering.course.credit_units }}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="3">No courses registered for this semester.</td></tr>
-      {% endfor %}
-    </tbody>
-    <tbody>
-      <tr class="total-row">
-        <td colspan="2">Total Credit Units</td>
-        <td>{{ total_units }}</td>
-      </tr>
-    </tbody>
+    <tr>
+      <th width="90">COURSE CODE</th>
+      <th>COURSE TITLE</th>
+      <th class="num" width="90">CREDIT UNITS</th>
+    </tr>
+    {% for reg in registrations %}
+    <tr>
+      <td><b>{{ reg.course_offering.course.code }}</b></td>
+      <td>{{ reg.course_offering.course.title }}</td>
+      <td class="num">{{ reg.course_offering.course.credit_units }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="3">No courses registered for this semester.</td></tr>
+    {% endfor %}
+    <tr class="total-row">
+      <td colspan="2">TOTAL CREDIT UNITS</td>
+      <td class="num">{{ total_units }}</td>
+    </tr>
   </table>
 
-  <div class="signature">
-    <div class="signature-line">Student Signature</div>
-  </div>
+  <div style="font-size: 26pt; line-height: 26pt;">&nbsp;</div>
+  <table width="100%">
+    <tr><td width="40%"><div class="sig">Student's Signature</div></td><td>&nbsp;</td></tr>
+  </table>
 
-  <div class="footer">
-    Generated on {% now "F j, Y H:i" %} - This is a system-generated document and does not require an official stamp unless requested.
+  <div style="font-size: 9pt; line-height: 9pt;">&nbsp;</div>
+  <div class="foot">
+    Generated {% now "j F Y, g:i A" %} &nbsp;|&nbsp; This is a system-generated document and does not require an official stamp unless requested.
   </div>
 </body>
 </html>

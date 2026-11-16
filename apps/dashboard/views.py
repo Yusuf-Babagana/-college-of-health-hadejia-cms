@@ -57,6 +57,9 @@ class StudentDashboardView(RoleRequiredMixin, TemplateView):
         context['active_semester'] = active_semester
 
         if student_profile:
+            from apps.students.selectors import get_profile_completeness
+
+            context['profile_completeness'] = get_profile_completeness(student_profile)
             context['outstanding_fees'] = get_outstanding_balance_for_student(student_profile)
             context['registered_course_count'] = get_registered_courses(
                 student_profile, semester=active_semester,

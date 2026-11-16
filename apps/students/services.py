@@ -82,6 +82,45 @@ def update_student_status(student, new_status):
     return student
 
 
+PHOTO_SIZE = (480, 600)  # px, 4:5 portrait - passport proportions, plenty for a printed form
+
+
+def update_profile_photo(user, uploaded_file):
+    """Stores a student's profile picture: corrects phone-camera rotation,
+    flattens transparency onto white, crops it to passport proportions
+    (4:5, keeping the upper-middle so heads are not cut off) so it never
+    looks stretched on the printed form, strips metadata (by re-encoding),
+    saves it as JPEG under a random name and deletes the picture it
+    replaces. Raises ValidationError if it isn't a real image.
+    """
+    import uuid
+    from io import BytesIO
+
+    from django.core.files.base import ContentFile
+    from PIL import Image, ImageOps, UnidentifiedImageError
+
+    try:
+        image = ImageOps.exif_transpose(Image.open(uploaded_file))
+        if image.mode in ('RGBA', 'LA', 'P'):
+            image = image.convert('RGBA')
+            flattened = Image.new('RGB', image.size, 'white')
+            flattened.paste(image, mask=image.split()[-1])
+            image = flattened
+        else:
+            image = image.convert('RGB')
+        image = ImageOps.fit(image, PHOTO_SIZE, Image.LANCZOS, centering=(0.5, 0.3))
+        buffer = BytesIO()
+        image.save(buffer, 'JPEG', quality=88, optimize=True)
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        raise ValidationError('That file is not a valid image.')
+
+    previous = user.avatar.name if user.avatar else ''
+    user.avatar.save(f'{uuid.uuid4().hex}.jpg', ContentFile(buffer.getvalue()), save=True)
+    if previous and previous != user.avatar.name:
+        user.avatar.storage.delete(previous)
+    return user
+
+
 def next_level_for(student):
     """The level after the student's current one, within their programme's
     span (a 2-level certificate ends at 200). None if they're already at

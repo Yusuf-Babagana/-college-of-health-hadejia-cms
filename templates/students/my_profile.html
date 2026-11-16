@@ -1,0 +1,73 @@
+{% extends 'dashboard_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}My Profile · {{ COLLEGE_SHORT_NAME }}{% endblock %}
+{% block breadcrumb_items %}<li class="breadcrumb-item active">My Profile</li>{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">My Profile</h4>
+<p class="text-muted mb-4">Keep your personal and guardian details up to date. Your profile picture is printed on your Course Registration Form.</p>
+
+<div class="row g-4">
+  <!-- Identity + completeness -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-body text-center p-4">
+        {% if student.user.avatar %}
+          <img src="{{ student.user.avatar.url }}" alt="Profile picture of {{ student.user.get_full_name }}"
+               class="rounded shadow-sm mb-3" style="width: 150px; height: 190px; object-fit: cover; border: 3px solid #dbeafe;">
+        {% else %}
+          <div class="rounded d-flex align-items-center justify-content-center mx-auto mb-3 text-muted"
+               style="width: 150px; height: 190px; background: #eff6ff; border: 2px dashed #93c5fd;">
+            <div class="small"><i class="bi bi-person-bounding-box fs-1 d-block mb-1"></i>No picture yet</div>
+          </div>
+        {% endif %}
+        <h5 class="mb-0">{{ student.user.get_full_name }}</h5>
+        <div class="text-muted small">{{ student.matric_number }}</div>
+        <div class="text-muted small">{{ student.department.name }}{% if student.programme %} &middot; {{ student.programme.name }}{% endif %}</div>
+        <span class="badge badge-teal mt-2">{{ student.get_level_display }}</span>
+      </div>
+      <div class="card-footer bg-transparent">
+        <div class="d-flex justify-content-between small mb-1">
+          <span class="fw-semibold">Profile completeness</span><span>{{ completeness.percent }}%</span>
+        </div>
+        <div class="progress" style="height: 8px;">
+          <div class="progress-bar {% if completeness.complete %}bg-success{% else %}bg-primary{% endif %}" style="width: {{ completeness.percent }}%;"></div>
+        </div>
+        {% if completeness.missing %}
+          <div class="small text-muted mt-2">Still needed: {{ completeness.missing|join:", " }}.</div>
+        {% else %}
+          <div class="small text-success mt-2"><i class="bi bi-check-circle-fill me-1"></i>Your profile is complete.</div>
+        {% endif %}
+      </div>
+    </div>
+    <p class="small text-muted mt-3 mb-0">
+      Your name, matric number, department, programme and level are managed by the Registrar. Contact the Registrar if any of them need correcting.
+    </p>
+  </div>
+
+  <!-- The three sections, saved together -->
+  <div class="col-lg-8">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-transparent"><i class="bi bi-person-vcard me-2 text-brand"></i>Contact &amp; profile picture</div>
+        <div class="card-body">{% crispy account_form %}</div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-transparent"><i class="bi bi-person-lines-fill me-2 text-brand"></i>Personal details</div>
+        <div class="card-body">{% crispy personal_form %}</div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-transparent"><i class="bi bi-people-fill me-2 text-brand"></i>Parent / guardian details</div>
+        <div class="card-body">{% crispy guardian_form %}</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary px-4"><i class="bi bi-check2-circle me-1"></i> Save profile</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
