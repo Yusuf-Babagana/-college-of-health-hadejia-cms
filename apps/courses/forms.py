@@ -98,21 +98,26 @@ class CourseOfferingForm(CrispyFormMixin, forms.ModelForm):
             # the level has since advanced - grades/registrations hang off it.
             cleaned_data['semester'] = self.instance.semester
         elif course:
-            from apps.academics.selectors import get_semester_for_level
+            from apps.courses import selectors
 
-            semester = get_semester_for_level(course.level, course.programme_id)
-            if semester is None:
+            running = selectors.get_running_semesters_for_course(course)
+            matching = [s for s in running if s.name == course.semester_name]
+            if not running:
                 self.add_error(
                     'course',
                     f'No semester is in progress for {course.get_level_display()}. '
                     'Ask the Registrar to set one under Level Semesters.',
                 )
-            elif semester.name != course.semester_name:
+            elif not matching:
+                running_names = ' / '.join(sorted({s.get_name_display() for s in running}))
                 self.add_error(
                     'course',
                     f'"{course.code}" is a {course.get_semester_name_display()} course, but '
-                    f'{course.get_level_display()} is currently running {semester.get_name_display()}.',
+                    f'{course.get_level_display()} is currently running {running_names}.',
                 )
-            cleaned_data['semester'] = semester
+            # The first match is this offering's own semester; for a course
+            # with no programme the view mirrors it into the others
+            # (services.mirror_offering_to_other_semesters).
+            cleaned_data['semester'] = matching[0] if matching else None
 
         return cleaned_data

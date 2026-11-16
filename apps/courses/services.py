@@ -25,6 +25,59 @@ def create_course_offering(*, course, semester, lecturer=None, capacity):
     return offering
 
 
+def mirror_offering_to_other_semesters(offering, *, dry_run=False):
+    """A course with no programme of its own (General Studies, or a
+    department-wide course) is taken by students of several programmes,
+    and each programme runs its own semester - so one offering in one
+    semester leaves the other programmes' students without the course.
+    This offers it in every other running semester it applies to, with the
+    same lecturer and capacity. Idempotent: a semester that already has
+    an offering for the course - including an archived one, which is not
+    resurrected - is left alone. Returns the offerings created (or, for a
+    dry run, the semesters it would create them in).
+    """
+    from . import selectors
+
+    course = offering.course
+    if course.programme_id:
+        return []
+
+    done = []
+    for semester in selectors.get_offering_semesters_for_course(course):
+        if semester.pk == offering.semester_id:
+            continue
+        if CourseOffering.all_objects.filter(course=course, semester=semester).exists():
+            continue
+        if dry_run:
+            done.append(semester)
+            continue
+        done.append(CourseOffering.objects.create(
+            course=course, semester=semester, lecturer=offering.lecturer, capacity=offering.capacity,
+        ))
+    return done
+
+
+def sync_shared_course_offerings(*, dry_run=False):
+    """Backfill: for every existing offering of a course with no
+    programme that sits in a currently running semester, mirror it into
+    the other running semesters (see mirror_offering_to_other_semesters).
+    Returns [(offering, [created offerings or semesters])] for the ones
+    that needed it.
+    """
+    from . import selectors
+
+    report = []
+    for offering in CourseOffering.objects.select_related('course', 'semester', 'lecturer'):
+        if offering.course.programme_id:
+            continue
+        if offering.semester_id not in {s.pk for s in selectors.get_running_semesters_for_course(offering.course)}:
+            continue  # an old, no-longer-running semester: history, not for mirroring
+        added = mirror_offering_to_other_semesters(offering, dry_run=dry_run)
+        if added:
+            report.append((offering, added))
+    return report
+
+
 def update_course_offering(offering, *, lecturer, capacity):
     offering.lecturer = lecturer
     offering.capacity = capacity

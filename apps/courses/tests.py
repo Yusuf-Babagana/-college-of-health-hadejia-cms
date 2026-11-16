@@ -666,3 +666,173 @@ class CrossDepartmentLecturerAssignmentTests(TestCase):
         response = client.get(reverse('results:lecturer_offerings'))
 
         self.assertContains(response, 'OTR201')
+
+
+class GeneralStudiesOfferingTests(TestCase):
+    """A General Studies course has no programme of its own, but every
+    programme runs its OWN current semester per level - so the course has
+    to be offered in each of those semesters or the students never see it.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth import get_user_model
+        from apps.academics.models import AcademicSession, LevelSemesterState, Semester
+        from apps.students.services import create_student
+
+        cls.session = AcademicSession.objects.create(name='2096/2097')
+        cls.nursing = Programme.objects.create(name='Nursing', short_code='NUR', duration_levels=4)
+        cls.midwifery = Programme.objects.create(name='Midwifery', short_code='MID', duration_levels=4)
+        cls.chew = Programme.objects.create(name='CHEW', short_code='CHW', duration_levels=4)
+
+        # Semesters are programme-specific: each programme has its own row.
+        cls.sem_default = Semester.objects.create(session=cls.session, name=SemesterName.FIRST)
+        cls.sem_nursing = Semester.objects.create(session=cls.session, name=SemesterName.FIRST, programme=cls.nursing)
+        cls.sem_midwifery = Semester.objects.create(session=cls.session, name=SemesterName.FIRST, programme=cls.midwifery)
+        cls.sem_chew_second = Semester.objects.create(session=cls.session, name=SemesterName.SECOND, programme=cls.chew)
+        LevelSemesterState.objects.create(level=Level.LEVEL_100, semester=cls.sem_default)  # college-wide default
+        LevelSemesterState.objects.create(level=Level.LEVEL_100, programme=cls.nursing, semester=cls.sem_nursing)
+        LevelSemesterState.objects.create(level=Level.LEVEL_100, programme=cls.midwifery, semester=cls.sem_midwifery)
+        LevelSemesterState.objects.create(level=Level.LEVEL_100, programme=cls.chew, semester=cls.sem_chew_second)
+
+        # a General Studies department is seeded by a migration; reuse it
+        cls.gst, _ = Department.objects.get_or_create(code='GST', defaults={'name': 'General Studies'})
+        Department.objects.filter(pk=cls.gst.pk).update(is_general_studies=True)
+        cls.nursing_dept = Department.objects.create(name='Nursing Dept', code='NUD')
+        cls.chem = Course.objects.create(
+            code='GST101', title='Use of English', credit_units=2, level=Level.LEVEL_100,
+            department=cls.gst, semester_name=SemesterName.FIRST,
+        )
+
+        def make(tag, programme):
+            student, _ = create_student(
+                first_name='S', last_name=tag, email=f'{tag}@example.test', matric_number=f'NUD/G/{tag}',
+                department=cls.nursing_dept, level=Level.LEVEL_100, admission_session=cls.session, programme=programme,
+            )
+            student.user.must_change_password = False
+            student.user.save(update_fields=['must_change_password'])
+            return student
+
+        cls.nursing_student = make('n1', cls.nursing)
+        cls.midwifery_student = make('m1', cls.midwifery)
+        cls.chew_student = make('c1', cls.chew)
+        User = get_user_model()
+        # the account the Registrar/ICT team uses: a Django superuser with NO role set
+        cls.admin = User.objects.create_superuser(username='root', password='x', email='root@example.test')
+        cls.super_admin = User.objects.create_user(username='sa', password='x', role=Role.SUPER_ADMIN)
+
+    def assign(self, user, course=None, **extra):
+        client = Client()
+        client.force_login(user)
+        data = {'course': (course or self.chem).pk, 'capacity': 100, **extra}
+        return client.post(reverse('courses:course_offering_create'), data, follow=True)
+
+    def visible_codes(self, student):
+        from apps.academics.selectors import get_semester_for_level
+        semester = get_semester_for_level(student.level, student.programme_id)
+        return {o.course.code for o in selectors.get_available_offerings_for_student(student, semester)}
+
+    # --- the General Studies problem ----------------------------------
+    def test_assigning_a_general_studies_course_offers_it_in_every_matching_programme_semester(self):
+        self.assign(self.admin)
+        semesters = set(CourseOffering.objects.filter(course=self.chem).values_list('semester_id', flat=True))
+        self.assertEqual(semesters, {self.sem_default.pk, self.sem_nursing.pk, self.sem_midwifery.pk})
+
+    def test_every_programmes_level_100_students_now_see_the_course(self):
+        self.assign(self.admin)
+        self.assertIn('GST101', self.visible_codes(self.nursing_student))
+        self.assertIn('GST101', self.visible_codes(self.midwifery_student))
+
+    def test_a_programme_currently_in_a_different_semester_is_not_given_the_course(self):
+        self.assign(self.admin)
+        self.assertFalse(CourseOffering.objects.filter(course=self.chem, semester=self.sem_chew_second).exists())
+        self.assertNotIn('GST101', self.visible_codes(self.chew_student))
+
+    def test_the_course_can_be_assigned_even_when_only_programme_states_exist(self):
+        from apps.academics.models import LevelSemesterState
+        LevelSemesterState.objects.filter(programme__isnull=True, level=Level.LEVEL_100).delete()
+        response = self.assign(self.admin)
+        self.assertNotContains(response, 'No semester is in progress')
+        self.assertTrue(CourseOffering.objects.filter(course=self.chem, semester=self.sem_nursing).exists())
+
+    def test_the_lecturer_and_capacity_are_copied_to_every_offering(self):
+        self.assign(self.admin, capacity=40)
+        self.assertEqual(set(CourseOffering.objects.filter(course=self.chem).values_list('capacity', flat=True)), {40})
+
+    def test_assigning_twice_never_duplicates(self):
+        self.assign(self.admin)
+        self.assign(self.admin)
+        self.assertEqual(CourseOffering.objects.filter(course=self.chem).count(), 3)
+
+    def test_a_course_tied_to_one_programme_stays_in_that_programmes_semester_only(self):
+        own = Course.objects.create(
+            code='NUR101', title='Nursing Basics', credit_units=3, level=Level.LEVEL_100,
+            department=self.nursing_dept, programme=self.nursing, semester_name=SemesterName.FIRST,
+        )
+        self.assign(self.admin, course=own)
+        self.assertEqual(
+            list(CourseOffering.objects.filter(course=own).values_list('semester_id', flat=True)),
+            [self.sem_nursing.pk],
+        )
+
+    def test_students_still_do_not_see_courses_outside_their_eligibility(self):
+        # the shared offering exists in the Midwifery semester, but a CHEW student sits elsewhere
+        self.assign(self.admin)
+        self.assertNotIn('GST101', self.visible_codes(self.chew_student))
+
+    # --- backfill for offerings created before this fix ----------------
+    def test_backfill_command_mirrors_an_existing_single_offering(self):
+        CourseOffering.objects.create(course=self.chem, semester=self.sem_default, capacity=60)
+        out = StringIO()
+        call_command('sync_course_offerings', '--dry-run', stdout=out)
+        self.assertEqual(CourseOffering.objects.filter(course=self.chem).count(), 1)  # dry run changes nothing
+        self.assertIn('GST101', out.getvalue())
+        call_command('sync_course_offerings', stdout=StringIO())
+        self.assertEqual(CourseOffering.objects.filter(course=self.chem).count(), 3)
+        call_command('sync_course_offerings', stdout=StringIO())  # idempotent
+        self.assertEqual(CourseOffering.objects.filter(course=self.chem).count(), 3)
+
+    def test_backfill_does_not_resurrect_an_archived_offering(self):
+        CourseOffering.objects.create(course=self.chem, semester=self.sem_default, capacity=60)
+        archived = CourseOffering.objects.create(course=self.chem, semester=self.sem_nursing, capacity=60)
+        archived.delete()  # soft delete
+        call_command('sync_course_offerings', stdout=StringIO())
+        self.assertTrue(CourseOffering.all_objects.get(pk=archived.pk).is_deleted)
+
+    # --- the allocation screen must see offerings in any current semester ---
+    def test_allocation_screen_knows_a_shared_course_is_already_assigned(self):
+        self.assign(self.admin)
+        found = selectors.get_current_offerings_for_department(self.gst)
+        self.assertIn(self.chem.pk, found)
+
+    # --- admin can do all of it ---------------------------------------
+    def test_a_roleless_superuser_can_open_and_use_the_offering_screens(self):
+        self.assign(self.admin)
+        client = Client()
+        client.force_login(self.admin)
+        response = client.get(reverse('courses:course_offering_list'))
+        self.assertContains(response, 'GST101')
+        page = client.get(reverse('courses:course_allocation'))
+        self.assertContains(page, 'Choose a department')  # the overseer picker, not 'no linked department'
+        self.assertNotContains(page, 'no linked department')
+        gst_page = client.get(reverse('courses:course_allocation'), {'department': self.gst.pk})
+        self.assertContains(gst_page, 'GST101')
+
+    def test_the_super_admin_role_can_do_the_same(self):
+        self.assign(self.super_admin)
+        self.assertEqual(CourseOffering.objects.filter(course=self.chem).count(), 3)
+        client = Client()
+        client.force_login(self.super_admin)
+        self.assertContains(client.get(reverse('courses:course_offering_list')), 'GST101')
+
+    def test_superuser_is_treated_as_a_super_admin_everywhere(self):
+        self.assertTrue(self.admin.is_super_admin)
+        self.assertTrue(self.super_admin.is_super_admin)
+        self.assertFalse(self.nursing_student.user.is_super_admin)
+
+    def test_a_roleless_superuser_lands_on_the_super_admin_dashboard(self):
+        client = Client()
+        client.force_login(self.admin)
+        response = client.get(reverse('dashboard:redirect'))
+        self.assertRedirects(response, reverse('dashboard:super_admin'), fetch_redirect_response=False)
+        self.assertEqual(client.get(reverse('dashboard:super_admin')).status_code, 200)

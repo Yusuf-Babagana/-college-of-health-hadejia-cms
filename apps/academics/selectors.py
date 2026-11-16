@@ -85,6 +85,21 @@ def _current_state_ids():
     return [state.pk for state in latest.values()]
 
 
+def get_current_semesters_for_level(level):
+    """Every distinct semester currently running for a level - the
+    college-wide default plus each programme's own - newest session
+    first. A level is no longer in one semester: each programme can be in
+    its own, so anything that must reach students of every programme
+    (a General Studies course) has to cover all of them.
+    """
+    seen = {}
+    for state in LevelSemesterState.objects.filter(
+        pk__in=_current_state_ids(), level=level,
+    ).select_related('semester', 'semester__session'):
+        seen.setdefault(state.semester_id, state.semester)
+    return sorted(seen.values(), key=lambda semester: (semester.session.name, semester.name), reverse=True)
+
+
 def get_level_semester_states():
     """Every level's CURRENT state (one per programme + level scope), for
     the Registrar's level-state screen and staff dashboards. Older
